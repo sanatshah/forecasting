@@ -1,0 +1,27 @@
+---
+description: Python backend — FastAPI, agents, Spanner helpers
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Backend Python
+
+- **Layout**: FastAPI entrypoints (e.g. `main.py`), `spanner.py` and agent packages (`insight_agent/`, `retail_agent/`, etc.) — follow existing module layout and naming.
+- **Spanner**: Use established client helpers and parameterized queries; align with `backend/insight_agent/common_tools/spanner_connection.py` and similar when touching graph or session behavior.
+- **Changes**: Match import style, typing, and docstring depth of surrounding code. No speculative try/except or verbose comments on obvious logic.
+
+## Domain calculations
+
+- **Margin / discount math**: Never average `(1 - cost/price)` per row — penny prices push it to absurd negatives. Use **ratio-of-sums via `SAFE_DIVIDE`**: inventory-weighted markdown depth, and margin on realized sales dollars vs COGS. Surface a separate **`pct_units_marked_down`** (or MD-only depth) alongside blended depth so merchants don't see “70% off” diluted by full-price rows.
+- **Snapshot ↔ pipeline parity**: Department headline KPIs that should match Liquidation Insights must use the **same predicates** as `deterministic_pipeline._query_kpis` (sell-through, on-hand floors, `MIN_STYLE_EXPOSURE_FOR_ACTION`). Style-level floors are usually the reason a dashboard tile diverges from the report.
+
+## Optional columns and graceful degradation
+
+- **Probe before query**: For columns that ETL may not yet populate (`net_sales_amt`, `avg_wgtd_cost`, `current_price`, etc.), probe `INFORMATION_SCHEMA` or wrap the query in try/except and serve a clearly-labeled fallback. Don't propagate schema errors to the API.
+- **Decimal / array serialization**: Spanner `ARRAY<NUMERIC>` returns `decimal.Decimal`, which **breaks ADK JSON serialization** of tool outputs. Convert to `float`/`list[float]` before returning from any agent tool.
+
+## Agent / ADK plumbing
+
+- **Session services**: Any custom session service (e.g. `GCSSessionService`) **must subclass `BaseSessionService`** — ADK `InvocationContext` rejects it otherwise. The bug is latent until the GCS path actually loads (in-memory fallback hides it).
+- **One-shot vs runner**: Use a single Vertex `generate_content` with a `response_schema` (e.g. `goals_agent.py` milestone generation) for structured one-shot outputs; reserve the full ADK runner for streaming conversational agents. Per-goal chat reuses the retail agent with `goal_id` injected via `chat_message_builder`.
+- **Per-message model selection**: Implement by reordering two pre-built `Runner`s plus a strict allowlist (see `_resolve_chat_attempts`) and expose labels via `GET /api/chat/models`.

@@ -1,0 +1,16 @@
+---
+description: How the agent should work in this repo — execution, citations, and context
+alwaysApply: true
+---
+
+# Agent expectations (project)
+
+- **Execute, don’t delegate**: Use the terminal and repo tools to verify fixes; prefer running commands over telling the user to run them. Retry with a different approach after failures instead of stopping at the first error.
+- **Real environment**: Assume full shell and network when needed; complete tasks in-session where possible.
+- **Authoritative date**: When inferring “today” or choosing years for search/docs, use the date from the **user_info** block in the chat (not a default training cutoff).
+- **Code citations**: When pointing at existing code, use fenced blocks with the exact format `startLine:endLine:filepath` on the opening fence line (path only, no language tag). Skip large irrelevant sections with `...`. For copy-paste commands in normal fences, use full commands.
+- **Conversation arc**: Treat follow-ups as steering the same goal unless the user clearly changes topic. Prefer the user’s underlying goal over a literal reading of one sentence.
+- **Tools vs prose**: Mention MCP/browser steps by what they accomplish, not internal tool names. Read MCP tool schemas before calling MCP tools.
+- **Scope**: Change only what the task needs; avoid drive-by refactors and unrequested markdown files.
+- **PowerShell shell**: This repo is developed on Windows/PowerShell. Bash-only forms fail silently or confusingly — avoid heredocs (`python - <<'PY' ... PY`), `&&`/`||` chains in older PS, and `$()` interpolation that conflicts with PS. For ad-hoc Python, write a temp `.py` file or use `python -c "..."`. Use `;` to chain in PowerShell.
+- **No hot reload on backend**: `backend/main.py` runs without `--reload`. After changing API routes, prompts, or SQL, **restart** the process; otherwise the server keeps stale code and gives misleading test results.

@@ -1,0 +1,29 @@
+---
+description: Frontend React/TS — components, UX, SQL assets
+globs: frontend/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend (Vite + React + TypeScript)
+
+- **UI**: Reuse `frontend/src/components/ui/*` and existing layout patterns for cohesive spacing, typography, and accessibility.
+- **Data**: Fetch via backend APIs; keep business SQL in `.sql` assets or server-side unless the repo already bundles a specific pattern.
+- **Quality**: Prefer focused components and hooks; avoid introducing server-only dependencies into the client bundle.
+
+## Chat bubble rendering
+
+- Model output may contain **inline HTML** (`<table>`, `<br>`, etc.). `react-markdown` strips raw HTML by default, so chat bubbles must use **`rehype-raw` + `rehype-sanitize`** together. Tighten `.ai-markdown` CSS in the same change to keep tables/code blocks readable.
+- Prefer markdown tables and the `vis-kpi` / `vis-chart` custom tags over hand-built HTML layouts; agent prompts (retail m6/m7) enforce this on the backend side.
+
+## `/chat?prompt=` seeding (URL → first message)
+
+- Seeding fails when `localStorage` rehydrates a non-empty thread. The fix is to **always start a fresh thread** for a URL-seeded prompt, then send. Guard against React `StrictMode` double-fire (effect runs twice in dev).
+- Beware closure staleness: a `sendMessage` reference captured before `newThread()` still points at the **old `activeThread`**. Sequence the new-thread creation, await its id, then dispatch the first message against that id.
+
+## Persistent chat shell
+
+- The minimize pattern for `AIChatModal` keeps the component **mounted**, hides the full UI, and shows a small floating chip so the user can return to the same session without losing context. Don’t unmount on minimize.
+
+## Long tag/scope lists
+
+- Goal detail location scopes (and similar multi-tag fields) must stay **compact and scrollable** — a horizontally-scrolling chip strip or a wrap container with a max height. Don’t let tag lists push primary content off-screen.

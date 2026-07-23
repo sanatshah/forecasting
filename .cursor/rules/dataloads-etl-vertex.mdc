@@ -1,0 +1,28 @@
+---
+description: ETL, dataloads, GCP auth, Vertex pipelines, and scheduled workloads
+globs: dataloads/**/*
+alwaysApply: false
+---
+
+# Dataloads and GCP operations
+
+- **Scope**: `dataloads/` covers Spanner graph ETL, truncate/load scripts, DDL under `ETL_Scripts/Schema/`, and **Vertex AI Pipeline** code (e.g. `vertex_pipeline/`). Prefer matching existing config patterns (`config_*.txt`, yaml) and script entrypoints (`etl.py`, `data_load.py`).
+- **Consolidated SQL**: When scheduling in GCP (e.g. scheduled queries), prefer a **single maintained SQL** file (or clear composition) suitable for production scheduling; align with BigQuery/Spanner identifiers and projects actually used in configs.
+- **Authentication**: Prefer **Application Default Credentials** (`gcloud auth application-default login`) or workload identity in CI. `GOOGLE_APPLICATION_CREDENTIALS` points at a **JSON key file** when keys are used — not every environment has a key file; use ADC or attached SA on GCP. Remind clearly when PowerShell syntax differs from bash (e.g. don’t paste Python into `gcloud`).
+- **Projects**: BigQuery/Spanner resources may span datasets and projects (`project.dataset.table`); mismatches between **queryable** tables and **job default project** often explain “I can query in console but the job fails” — verify **billing/project**, **dataset location**, and **IAM** on the runtime identity.
+- **Idempotency and safety**: Truncate/load jobs are destructive; preserve logging patterns and explicit confirmations consistent with existing scripts.
+
+## Column and view drift
+
+- **Cost column is `avg_wgtd_cost`** (not `awc`) across `ProductBaseView.sql`, Spanner DDL, `config_data_load.txt`, and graph label lists — change them together. Sandbox `ProductBaseView` uses **`greg_amc_week_end_dt`** as the week key; verify against real BQ column names before wiring new ETL.
+- **`CREATE OR REPLACE VIEW` drops production-only columns**: e.g. prod `ProductBaseView` carried `current_price` while the repo SQL didn’t, so re-deploying from git silently broke downstream loads. Add `MAX(ticketed_retail) AS current_price` (treated as “at-shelf retail today”) and diff prod schema against the SQL before replacing views.
+- **Partial reloads**: Use `load_policy_only.py` to refresh policy tables without a full truncate-and-load cycle.
+
+## Container env and Vertex 404s
+
+- `.dockerignore` excludes `backend/.env`, so deployed images fall through to **code defaults** for `CHAT_MODEL` / `CHAT_FALLBACK_MODEL`. If those defaults reference **preview** Vertex model ids and the GCP project isn’t allowlisted, the chat endpoint returns **404**. Either bake model ids in via build args / a config file shipped into the image, or set them on the runtime env explicitly.
+- **Malformed `GOOGLE_CLOUD_PROJECT`** (e.g. two project ids concatenated) breaks `storage.Client` and silently forces the session service into the in-memory fallback — masking real GCS-session bugs. Validate this env var on startup.
+
+## Project safety
+
+- Treat `mcy-eda-anlytcs-prod` and `mtech-merch-priceopt-prd` as **read-only**. Any new write tool must call `assert_safe_write_project()` and refuse if those ids are configured for the write target.

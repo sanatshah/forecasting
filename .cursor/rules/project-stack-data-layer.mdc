@@ -1,0 +1,14 @@
+---
+description: Stack conventions — Spanner, Python API, frontend TS, and data access patterns
+alwaysApply: true
+---
+
+# Stack and data layer
+
+- **System of record**: Google **Cloud Spanner** (including graph-oriented access) and **BigQuery** for analytics/ETL. Backend is **Python** (FastAPI, agents, ETL), not a Node DB service.
+- **API models**: Use **Pydantic** for request/response and DTOs at the boundary. Prefer a small repository/service layer over scattering raw SQL.
+- **Persistence style**: Prefer **parameterized SQL** and explicit `param_types` (Spanner client patterns) over a heavy ORM graph. SQLAlchemy, if introduced, should stay **Core-oriented**; verify anything dialect-specific against Spanner.
+- **Frontend (`frontend/`)**: **TypeScript/React (Vite)** — UI and API calls only. Do **not** add DB clients or ORMs (e.g. Drizzle) in the browser bundle; TS on the client does not imply a server-side ORM.
+- **SQL assets**: SQL used by the app or tooling may live under paths like `frontend/src/sql/`; keep Spanner/BQ behavior and permissions in mind when editing.
+- **RAG / agents**: Ground retrieval and answers in **Spanner graph (and related)** sources where that is the project requirement; don’t substitute unverified free-form knowledge when the task is graph-grounded Q&A.
+- **Write safety — staging only**: Agent / app writes (e.g. strategy markdown ladder uploads) go to the **staging** Spanner instance only. Named prod projects such as `mcy-eda-anlytcs-prod` and `mtech-merch-priceopt-prd` are **read-only** for the app. Route new write tools through `assert_safe_write_project()` (or equivalent guard) and surface a clear error if a prod project id is configured. BigQuery in those prod projects is also read-only — keep any new BQ write paths out of them.
