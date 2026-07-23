@@ -1,0 +1,24 @@
+{
+  "dataset": "metrics",
+  "transform": {
+    "filters": [
+      {"col": "level", "op": "eq", "value": "department"},
+      {"col": "model", "op": "eq", "value": "ml_gradient_boosting"}
+    ],
+    "sort": {"by": "bias", "ascending": true}
+  },
+  "chart": {
+    "kind": "bar",
+    "x": "group",
+    "y": "bias"
+  },
+  "style": {
+    "title": "Forecast Bias by Department — ML Gradient Boosting (Best Model)",
+    "xlabel": "Department",
+    "ylabel": "Bias (units, negative = under-forecast)",
+    "figsize": [9, 5],
+    "tick_rotation": 15,
+    "legend": false
+  },
+  "output": "bias_by_department.png"
+}

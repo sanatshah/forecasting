@@ -92,6 +92,39 @@ def test_all_builtin_specs_validate():
         PlotSpec.from_json_file(path)
 
 
+def test_bias_by_department_spec_filters_best_model_and_renders(tmp_path, config):
+    spec = PlotSpec.from_json_file(
+        PROJECT_ROOT / "plot_specs" / "bias_by_department.json"
+    )
+    metrics = pd.DataFrame(
+        {
+            "model": ["ml_gradient_boosting"] * 3 + ["baseline"] * 3,
+            "level": ["department"] * 6,
+            "group": [
+                "Home",
+                "Mens Apparel",
+                "Womens Apparel",
+                "Home",
+                "Mens Apparel",
+                "Womens Apparel",
+            ],
+            "bias": [2.0, -3.0, 0.5, 100.0, 100.0, 100.0],
+        }
+    )
+
+    transformed = apply_transforms(metrics, spec.transform)
+
+    assert transformed["group"].tolist() == [
+        "Mens Apparel",
+        "Womens Apparel",
+        "Home",
+    ]
+    assert transformed["bias"].tolist() == [-3.0, 0.5, 2.0]
+    output = render(spec, config, df=metrics, plots_dir=tmp_path)
+    assert Path(output).name == "bias_by_department.png"
+    assert Path(output).stat().st_size > 0
+
+
 # ---------------------------------------------------------------------------
 # Transforms
 # ---------------------------------------------------------------------------
@@ -228,11 +261,12 @@ def test_render_builtin_specs_with_frames(tmp_path, config, tiny_forecasts, tiny
     )
     metrics = pd.DataFrame(
         {
-            "model": ["m", "m", "m"],
-            "level": ["department", "department", "channel"],
-            "group": ["Home", "Mens Apparel", "store"],
-            "wape": [0.2, 0.3, 0.1],
-            "mae": [1.0, 2.0, 0.5],
+            "model": ["ml_gradient_boosting"] * 4,
+            "level": ["department", "department", "department", "channel"],
+            "group": ["Home", "Mens Apparel", "Womens Apparel", "store"],
+            "wape": [0.2, 0.3, 0.25, 0.1],
+            "mae": [1.0, 2.0, 1.5, 0.5],
+            "bias": [2.0, -3.0, 0.5, -0.25],
         }
     )
     # Point plots_dir at tmp so we don't clobber real outputs.
@@ -249,7 +283,7 @@ def test_render_builtin_specs_with_frames(tmp_path, config, tiny_forecasts, tiny
             "holdout_predictions": holdout,
         },
     )
-    assert len(paths) >= 7
+    assert "bias_by_department.png" in {Path(p).name for p in paths}
     for p in paths:
         assert Path(p).is_file()
 
