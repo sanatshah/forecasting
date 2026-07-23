@@ -1,0 +1,330 @@
+You are a senior machine learning engineer and retail data scientist. Build a complete time-series forecasting and optimization system for retail demand forecasting from scratch.
+
+I want production-quality Python code, clean project structure, and detailed explanations. The system should use the sample time-series dataset I provide below and be designed so it can later scale to real retail data at UPC / SKU / Location / Day grain.
+
+BUSINESS CONTEXT
+Build a retail forecasting system that predicts future demand and supports optimization decisions for pricing, inventory, markdown, and replenishment. The system should be suitable for retail products where demand may be seasonal, promotional, sparse, intermittent, and affected by price, markdowns, inventory, holidays, and product attributes.
+
+CORE OBJECTIVES
+1. Ingest sample time-series data.
+2. Validate and clean the dataset.
+3. Engineer retail-specific time-series features.
+4. Train baseline and advanced forecasting models.
+5. Evaluate forecasts using retail-appropriate metrics.
+6. Generate forward-looking forecasts.
+7. Build an optimization layer that recommends decisions based on forecast output.
+8. Create visualizations and explainability outputs.
+9. Package the full solution as a clean, modular project.
+
+DATA I WILL PROVIDE
+I will provide sample CSV data in this format. If some fields are missing, create robust handling logic and document assumptions.
+
+Expected columns:
+- date
+- sku_id
+- product_id
+- location_id
+- department
+- class
+- subclass
+- channel
+- units_sold
+- sales_revenue
+- regular_price
+- selling_price
+- markdown_pct
+- promo_flag
+- promo_event_name
+- inventory_on_hand
+- inventory_in_transit
+- stockout_flag
+- holiday_flag
+- fiscal_week
+- fiscal_month
+- fiscal_quarter
+- season
+- product_lifecycle_status
+
+Sample data placeholder:
+<<<PASTE_SAMPLE_CSV_HERE>>>
+
+PROJECT STRUCTURE
+Create the full project from scratch using this structure:
+
+retail_forecasting_optimization/
+  README.md
+  requirements.txt
+  config/
+    config.yaml
+  data/
+    sample_input.csv
+    processed/
+  notebooks/
+    01_exploration.ipynb
+  src/
+    __init__.py
+    data_loader.py
+    data_validation.py
+    feature_engineering.py
+    model_baseline.py
+    model_ml.py
+    model_selection.py
+    forecasting_pipeline.py
+    optimization_engine.py
+    evaluation.py
+    visualization.py
+    explainability.py
+    utils.py
+  tests/
+    test_data_validation.py
+    test_feature_engineering.py
+    test_optimization_engine.py
+  outputs/
+    forecasts.csv
+    recommendations.csv
+    model_metrics.csv
+    plots/
+  main.py
+
+TECHNICAL REQUIREMENTS
+Use Python. Prefer commonly available open-source libraries:
+- pandas
+- numpy
+- scikit-learn
+- statsmodels if useful
+- xgboost or lightgbm if available, otherwise provide fallback using sklearn
+- matplotlib
+- seaborn
+- pydantic or pandera if useful for validation
+- pytest
+
+Do not assume cloud access. Make this runnable locally.
+
+DATA VALIDATION REQUIREMENTS
+Create strong validation logic:
+- Check required columns.
+- Validate date parsing.
+- Check duplicate rows at date + sku_id + location_id + channel grain.
+- Handle missing values.
+- Detect negative units, negative prices, impossible markdowns, and selling_price greater than regular_price.
+- Detect stockout periods and flag them.
+- Create a data quality report.
+
+FEATURE ENGINEERING REQUIREMENTS
+Create retail-specific features:
+- Lag features: 1, 7, 14, 28 days.
+- Rolling demand features: 7-day, 14-day, 28-day rolling mean and std.
+- Price features:
+  - discount depth
+  - price index versus historical average
+  - regular_price minus selling_price
+- Promo features:
+  - promo_flag
+  - days since last promo
+  - days until next promo if possible
+- Calendar features:
+  - day of week
+  - week of year
+  - month
+  - quarter
+  - weekend flag
+  - holiday flag
+  - fiscal week/month/quarter
+- Product/location hierarchy features:
+  - department
+  - class
+  - subclass
+  - location_id
+  - channel
+- Inventory features:
+  - inventory_on_hand
+  - inventory weeks of supply
+  - stockout flag
+  - constrained demand flag
+- Lifecycle features:
+  - product age
+  - new/core/end-of-life status if available
+
+FORECASTING REQUIREMENTS
+Build multiple forecasting approaches:
+
+1. Naive baseline:
+   - Last 7-day average
+   - Same weekday last week
+   - Seasonal naive where possible
+
+2. Statistical baseline:
+   - Moving average
+   - Optional ARIMA/SARIMAX if feasible
+
+3. Machine learning model:
+   - Gradient boosting or random forest regression
+   - Use lag/rolling/price/promo/calendar/product/location features
+   - Train using time-based split, not random split
+   - Support forecast horizon of 7, 14, and 28 days
+
+4. Optional advanced model placeholder:
+   - Include an interface for future deep learning or transformer model integration such as Chronos, PatchTST, TimesFM, or other foundation models.
+   - Do not require these models to run locally unless dependencies are available.
+   - Provide a clean abstraction so the system can plug in those models later.
+
+EVALUATION REQUIREMENTS
+Evaluate at multiple levels:
+- Overall
+- By department
+- By channel
+- By location
+- By SKU/product
+- By promotion vs non-promotion periods
+- By lifecycle status if available
+
+Metrics:
+- WAPE
+- MAPE with safe zero handling
+- MAE
+- RMSE
+- Bias
+- Forecast accuracy percentage where appropriate
+- Service-level oriented error summary if inventory is available
+
+MODEL SELECTION REQUIREMENTS
+Create model comparison logic:
+- Compare baseline, statistical, and ML models.
+- Select best model based on WAPE.
+- Save model metrics to outputs/model_metrics.csv.
+- Save forecasts to outputs/forecasts.csv.
+
+OPTIMIZATION ENGINE REQUIREMENTS
+Create an optimization layer that uses the forecast output to recommend business actions.
+
+The optimization engine should support the following decision types:
+
+1. Inventory recommendation:
+   - Calculate expected demand for the forecast horizon.
+   - Calculate inventory weeks of supply.
+   - Recommend replenish / hold / transfer / reduce exposure.
+   - Flag stockout risk and overstock risk.
+
+2. Markdown or pricing recommendation:
+   - If demand is weak and inventory is high, recommend deeper markdown.
+   - If demand is strong and inventory is low, recommend shallower markdown or hold price.
+   - Respect guardrails:
+     - minimum margin threshold
+     - maximum markdown depth
+     - no negative price
+     - selling price cannot exceed regular price unless explicitly allowed
+   - Use simple elasticity assumptions if elasticity is not available.
+   - Make elasticity configurable by department/class.
+
+3. Retail business recommendation:
+   - Create recommendation reason codes such as:
+     - HIGH_STOCK_LOW_DEMAND
+     - LOW_STOCK_HIGH_DEMAND
+     - PROMO_RESPONSE_STRONG
+     - PROMO_RESPONSE_WEAK
+     - STOCKOUT_RISK
+     - OVERSTOCK_RISK
+     - NORMAL_DEMAND
+
+4. Output recommendation table:
+   - date
+   - sku_id
+   - location_id
+   - channel
+   - forecast_horizon
+   - forecast_units
+   - inventory_on_hand
+   - weeks_of_supply
+   - risk_flag
+   - recommended_action
+   - recommended_markdown_pct
+   - expected_sales
+   - expected_margin
+   - reason_code
+   - explanation
+
+OPTIMIZATION OBJECTIVE
+Implement a simple objective function that balances:
+- maximize expected margin
+- reduce overstock
+- reduce stockout risk
+- respect business guardrails
+
+Create code that is easy to extend to scipy.optimize or linear programming later.
+
+VISUALIZATION REQUIREMENTS
+Create plots:
+- Actual vs forecast demand
+- Forecast by SKU/location
+- Error by department
+- WAPE by department/channel
+- Inventory risk heatmap
+- Forecast distribution over time
+- Recommendation summary chart
+
+EXPLAINABILITY REQUIREMENTS
+For ML model:
+- Provide feature importance.
+- Explain top drivers of forecast.
+- Generate plain-English explanation for each recommendation.
+
+README REQUIREMENTS
+Write a complete README that includes:
+- Project purpose
+- Retail use case
+- Setup instructions
+- How to run
+- Input data schema
+- Output files
+- Model methodology
+- Evaluation metrics
+- Optimization logic
+- Known limitations
+- Future enhancements
+
+MAIN EXECUTION REQUIREMENTS
+Create a main.py that runs the full pipeline end-to-end:
+1. Load data.
+2. Validate data.
+3. Engineer features.
+4. Train models.
+5. Select best model.
+6. Generate forecasts.
+7. Run optimization engine.
+8. Save outputs.
+9. Generate plots.
+10. Print executive summary.
+
+EXECUTIVE SUMMARY OUTPUT
+At the end of the run, print a concise executive summary:
+- Number of SKUs/products processed
+- Number of locations processed
+- Forecast horizon
+- Best model selected
+- Overall WAPE
+- Top departments by forecast error
+- Number of stockout-risk recommendations
+- Number of overstock-risk recommendations
+- Estimated business opportunity if available
+
+CODING STYLE
+- Write clean, modular, production-ready code.
+- Add docstrings and inline comments.
+- Use type hints where useful.
+- Handle errors gracefully.
+- Avoid hardcoding business assumptions; place configurable values in config.yaml.
+- Include unit tests for validation, feature engineering, and optimization logic.
+- Make the sample run work even with a small dataset.
+
+IMPORTANT DESIGN PRINCIPLES
+- No data leakage.
+- Use time-based train/test split.
+- Forecast future dates only using information available up to the forecast date.
+- Keep feature engineering reusable for both training and inference.
+- Design for retail hierarchy rollups: SKU, product, department, location, channel.
+- Build this as if it could later become a production forecasting service.
+
+DELIVERABLES
+Generate all files and code needed for the full project. Do not only explain the approach. Actually create the code for each file. If a dependency is optional, include fallback logic. If the sample dataset is too small for some model types, still create the code and explain how it will behave with larger data.
+
+Start by creating the project structure and then provide the complete code for each file.

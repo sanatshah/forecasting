@@ -1,0 +1,140 @@
+# =============================================================================
+# Retail Forecasting & Optimization - central configuration
+# All business assumptions and tunable parameters live here (no hard-coding
+# in source). Values are read by src/utils.load_config().
+# =============================================================================
+
+project:
+  name: retail_forecasting_optimization
+  random_seed: 42
+
+paths:
+  input_csv: data/sample_input.csv
+  processed_dir: data/processed
+  outputs_dir: outputs
+  plots_dir: outputs/plots
+  forecasts_csv: outputs/forecasts.csv
+  recommendations_csv: outputs/recommendations.csv
+  metrics_csv: outputs/model_metrics.csv
+  quality_report_csv: outputs/data_quality_report.csv
+
+# -----------------------------------------------------------------------------
+# Data schema and grain
+# -----------------------------------------------------------------------------
+data:
+  date_col: date
+  target_col: units_sold
+  # Series grain: a unique time series is identified by these columns together.
+  series_keys: [sku_id, location_id, channel]
+  required_columns:
+    - date
+    - sku_id
+    - product_id
+    - location_id
+    - department
+    - class
+    - subclass
+    - channel
+    - units_sold
+    - sales_revenue
+    - regular_price
+    - selling_price
+    - markdown_pct
+    - promo_flag
+    - promo_event_name
+    - inventory_on_hand
+    - inventory_in_transit
+    - stockout_flag
+    - holiday_flag
+    - fiscal_week
+    - fiscal_month
+    - fiscal_quarter
+    - season
+    - product_lifecycle_status
+  # Columns that are allowed to contain nulls (business-valid).
+  nullable_columns: [promo_event_name]
+
+# -----------------------------------------------------------------------------
+# Validation thresholds
+# -----------------------------------------------------------------------------
+validation:
+  max_markdown_pct: 0.95        # markdown depth above this is flagged as impossible
+  min_price: 0.0                # prices must be >= this
+  # If selling_price > regular_price it is flagged (price integrity issue).
+  allow_selling_above_regular: false
+  # A stockout is inferred when inventory_on_hand <= this AND demand signal exists.
+  stockout_inventory_threshold: 0
+
+# -----------------------------------------------------------------------------
+# Feature engineering windows
+# -----------------------------------------------------------------------------
+features:
+  lags: [1, 7, 14, 28]
+  rolling_windows: [7, 14, 28]
+  # Weeks-of-supply uses a rolling demand rate over this many days.
+  wos_demand_window: 28
+  # Constrained-demand flag: demand is considered constrained when stockout or
+  # inventory is below this many days of typical demand.
+  constrained_wos_threshold_days: 3
+
+# -----------------------------------------------------------------------------
+# Train / test split and forecasting
+# -----------------------------------------------------------------------------
+forecast:
+  horizons: [7, 14, 28]
+  # Number of trailing days held out per series for evaluation (time-based split).
+  holdout_days: 28
+  # Primary horizon used for optimization / recommendations.
+  primary_horizon: 28
+
+# -----------------------------------------------------------------------------
+# Model configuration
+# -----------------------------------------------------------------------------
+models:
+  # Preference order for the ML gradient-boosting backend. First available wins.
+  ml_backend_preference: [lightgbm, xgboost, sklearn_hist]
+  ml_params:
+    n_estimators: 400
+    learning_rate: 0.05
+    max_depth: 7
+    subsample: 0.9
+    colsample_bytree: 0.9
+    min_child_samples: 20
+  # SARIMAX is expensive; cap how many series it runs on for the sample.
+  sarimax:
+    enabled: true
+    max_series: 5
+    order: [1, 1, 1]
+    seasonal_order: [1, 1, 1, 7]
+
+# -----------------------------------------------------------------------------
+# Optimization engine
+# -----------------------------------------------------------------------------
+optimization:
+  # Weeks-of-supply thresholds driving inventory actions.
+  wos_stockout_threshold: 1.0     # below this -> stockout risk / replenish
+  wos_overstock_threshold: 8.0    # above this -> overstock risk / reduce
+  wos_healthy_low: 2.0
+  wos_healthy_high: 6.0
+  # Service level target for safety-stock style reasoning.
+  service_level_z: 1.65           # ~95% service level
+  # Markdown guardrails.
+  min_margin_pct: 0.10            # do not recommend actions that push margin below this
+  max_markdown_pct: 0.70         # never recommend markdown deeper than this
+  markdown_step: 0.05            # granularity of recommended markdown changes
+  # Unit cost assumption when true cost is unavailable: cost = regular_price * (1 - assumed_gross_margin)
+  assumed_gross_margin: 0.55
+  # Objective function weights (maximize margin, penalize overstock & stockout).
+  objective_weights:
+    margin: 1.0
+    overstock_penalty: 0.3
+    stockout_penalty: 0.5
+  # Price elasticity of demand (negative = demand rises as price falls).
+  # Configurable by department, with class-level overrides and a global default.
+  elasticity:
+    default: -1.2
+    by_department:
+      "Womens Apparel": -1.4
+      "Mens Apparel": -1.1
+      "Home": -0.9
+    by_class: {}

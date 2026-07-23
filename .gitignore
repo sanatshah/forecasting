@@ -1,0 +1,16 @@
+# OS / editor
+.DS_Store
+.cursor/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+.ipynb_checkpoints/
+
+# Generated outputs
+retail_forecasting_optimization/outputs/*.csv
+retail_forecasting_optimization/outputs/*.log
+retail_forecasting_optimization/outputs/plots/*.png
+retail_forecasting_optimization/data/processed/*.csv

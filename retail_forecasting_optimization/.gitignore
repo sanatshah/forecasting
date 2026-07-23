@@ -1,0 +1,17 @@
+# Virtual environment
+.venv/
+
+# Python caches
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Generated outputs (kept out of version control; regenerate via `python main.py`)
+outputs/*.csv
+outputs/*.log
+outputs/plots/*.png
+data/processed/*.csv
+
+# OS / editor
+.DS_Store
+.ipynb_checkpoints/

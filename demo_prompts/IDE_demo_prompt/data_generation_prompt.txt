@@ -1,0 +1,50 @@
+Generate a synthetic retail forecasting dataset.
+
+Requirements:
+
+- Daily data from 2024-01-01 through 2025-12-31.
+- 12 SKUs.
+- 5 store locations.
+- 3 departments:
+  - Womens Apparel
+  - Mens Apparel
+  - Home
+
+Inject realistic retail behavior:
+
+1. Weekly seasonality.
+2. Monthly seasonality.
+3. Strong holiday spikes:
+   - Valentine's Day
+   - Memorial Day
+   - Back-to-School
+   - Black Friday
+   - Cyber Monday
+   - Christmas
+
+4. Promotional lift:
+   - 10% to 40% unit increase.
+
+5. Price elasticity:
+   - Lower prices increase unit sales.
+
+6. Inventory constraints:
+   - Stockouts reduce observed sales.
+
+7. Product lifecycle:
+   - New
+   - Core
+   - End of Life
+
+8. Markdown events:
+   - Random markdowns between 5% and 50%.
+
+9. Generate approximately:
+   12 SKUs × 5 Locations × 730 Days
+   = 43,800 records
+
+Output:
+- CSV file
+- Realistic data distributions
+- No missing dates
+- No duplicate SKU/location/day combinations

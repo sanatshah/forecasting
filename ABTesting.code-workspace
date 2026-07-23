@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "forecasting",
+			"path": "."
+		},
+		{
+			"name": "pricing_ab_test",
+			"path": "../local-assortment-optimizer/pricing_ab_test"
+		}
+	],
+	"settings": {}
+}
