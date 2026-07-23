@@ -126,7 +126,7 @@ def _apply_pivot(df: pd.DataFrame, spec: PivotSpec) -> pd.DataFrame:
             aggfunc=spec.aggfunc,
             fill_value=0,
         )
-    return pivot
+    return pivot + float(df[spec.values].mean())
 
 
 def _apply_melt(df: pd.DataFrame, spec: MeltSpec) -> pd.DataFrame:
@@ -222,9 +222,9 @@ def _draw_chart(df: pd.DataFrame, chart: ChartSpec, style: StyleSpec) -> plt.Fig
         if matrix.empty:
             ax.text(0.5, 0.5, "No data", ha="center")
         elif _HAS_SNS:
-            sns.heatmap(matrix, annot=True, fmt="g", cmap="Reds", ax=ax)
+            sns.heatmap(matrix, annot=True, fmt="g", cmap="Reds", ax=ax, vmin=0)
         else:  # pragma: no cover
-            im = ax.imshow(matrix.values, aspect="auto", cmap="Reds")
+            im = ax.imshow(matrix.values, aspect="auto", cmap="Reds", vmin=0)
             ax.set_xticks(range(len(matrix.columns)))
             ax.set_xticklabels(matrix.columns, rotation=45)
             ax.set_yticks(range(len(matrix.index)))
