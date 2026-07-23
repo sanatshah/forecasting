@@ -12,5 +12,5 @@ alwaysApply: true
 - **Conversation arc**: Treat follow-ups as steering the same goal unless the user clearly changes topic. Prefer the user’s underlying goal over a literal reading of one sentence.
 - **Tools vs prose**: Mention MCP/browser steps by what they accomplish, not internal tool names. Read MCP tool schemas before calling MCP tools.
 - **Scope**: Change only what the task needs; avoid drive-by refactors and unrequested markdown files.
-- **PowerShell shell**: This repo is developed on Windows/PowerShell. Bash-only forms fail silently or confusingly — avoid heredocs (`python - <<'PY' ... PY`), `&&`/`||` chains in older PS, and `$()` interpolation that conflicts with PS. For ad-hoc Python, write a temp `.py` file or use `python -c "..."`. Use `;` to chain in PowerShell.
-- **No hot reload on backend**: `backend/main.py` runs without `--reload`. After changing API routes, prompts, or SQL, **restart** the process; otherwise the server keeps stale code and gives misleading test results.
+- **Shell**: Prefer simple, portable commands. Use the project venv Python under `retail_forecasting_optimization/` (`./.venv/bin/python` on macOS/Linux, `.\.venv\Scripts\python.exe` on Windows). For ad-hoc Python, prefer `python -c "..."` or a temp `.py` file over fragile multiline shell heredocs when the environment may be PowerShell.
+)
