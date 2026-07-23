@@ -1,0 +1,23 @@
+{
+  "dataset": "recommendations",
+  "transform": {
+    "groupby": {
+      "by": ["reason_code"],
+      "agg": {"count": "size"}
+    },
+    "sort": {"by": "count", "ascending": false}
+  },
+  "chart": {
+    "kind": "bar",
+    "x": "reason_code",
+    "y": "count"
+  },
+  "style": {
+    "title": "Recommendation Summary by Reason Code",
+    "ylabel": "Count",
+    "figsize": [9, 5],
+    "tick_rotation": 30,
+    "legend": false
+  },
+  "output": "recommendation_summary.png"
+}

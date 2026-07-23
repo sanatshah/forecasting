@@ -97,6 +97,9 @@ def run_pipeline(config: Dict[str, Any], quick: bool = False) -> Dict[str, Any]:
     # 8-9. Explainability & plots ------------------------------------------
     explain = generate_explainability(config, comparison["ml_model"], recommendations)
     best_pred = comparison["predictions"][comparison["best_model_name"]]
+    holdout_path = resolve_path(config["paths"]["holdout_predictions_csv"])
+    best_pred.to_csv(holdout_path, index=False)
+    logger.info("Saved holdout predictions to %s", holdout_path)
     plots = generate_all_plots(
         config, best_pred, comparison["metrics_table"], daily_forecast, recommendations
     )
@@ -172,7 +175,13 @@ def print_executive_summary(config: Dict[str, Any], artifacts: Dict[str, Any]) -
         for d in drivers:
             print(f"  - {d}")
     print("\nOutputs written to:")
-    for key in ["forecasts_csv", "recommendations_csv", "metrics_csv", "quality_report_csv"]:
+    for key in [
+        "forecasts_csv",
+        "recommendations_csv",
+        "metrics_csv",
+        "holdout_predictions_csv",
+        "quality_report_csv",
+    ]:
         print(f"  - {resolve_path(config['paths'][key])}")
     print(f"  - {ensure_dir(config['paths']['plots_dir'])} (plots)")
     print(line + "\n")

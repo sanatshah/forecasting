@@ -1,0 +1,28 @@
+{
+  "dataset": "holdout_predictions",
+  "transform": {
+    "groupby": {
+      "by": ["date"],
+      "agg": {"actual": "sum", "forecast": "sum"}
+    },
+    "melt": {
+      "id_vars": ["date"],
+      "value_vars": ["actual", "forecast"],
+      "var_name": "metric",
+      "value_name": "units"
+    }
+  },
+  "chart": {
+    "kind": "line",
+    "x": "date",
+    "y": "units",
+    "series": "metric"
+  },
+  "style": {
+    "title": "Actual vs Forecast Demand (holdout, all series)",
+    "xlabel": "Date",
+    "ylabel": "Units",
+    "figsize": [10, 5]
+  },
+  "output": "actual_vs_forecast.png"
+}

@@ -1,0 +1,25 @@
+{
+  "dataset": "metrics",
+  "transform": {
+    "filters": [
+      {"col": "level", "op": "eq", "value": "department"}
+    ],
+    "groupby": {
+      "by": ["group"],
+      "agg": {"wape": "mean"}
+    },
+    "sort": {"by": "wape", "ascending": true}
+  },
+  "chart": {
+    "kind": "barh",
+    "x": "group",
+    "y": "wape"
+  },
+  "style": {
+    "title": "WAPE by Department",
+    "xlabel": "WAPE",
+    "figsize": [9, 5],
+    "legend": false
+  },
+  "output": "wape_by_department.png"
+}

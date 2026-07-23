@@ -101,11 +101,21 @@ All under `outputs/`:
   `horizon_day` index for rollups.
 - `recommendations.csv` - the decision table (see schema below).
 - `model_metrics.csv` - per-model, per-slice accuracy metrics.
+- `holdout_predictions.csv` - holdout actual vs forecast for the best model.
 - `data_quality_report.csv` - every validation finding and fix applied.
-- `plots/` - actual-vs-forecast, forecast by SKU/location, error by department,
-  WAPE by department/channel, inventory risk heatmap, forecast distribution,
-  recommendation summary, and feature importance.
+- `plots/` - PNGs from declarative specs in `plot_specs/*.json` (actual vs
+  forecast, forecast by SKU/location, error/WAPE by department and channel,
+  inventory risk heatmap, forecast distribution, recommendation summary) plus
+  feature importance from explainability.
 - `processed/cleaned.csv` (under `data/`) - the cleaned dataset.
+
+Ad-hoc charts (no pipeline re-run) via the plot CLI:
+
+```bash
+python -m src.plotting list-datasets
+python -m src.plotting describe forecasts
+python -m src.plotting render --spec outputs/adhoc_example.json
+```
 
 Recommendation table columns: `date, sku_id, location_id, channel, department,
 forecast_horizon, forecast_units, inventory_on_hand, weeks_of_supply,
@@ -196,10 +206,14 @@ retail_forecasting_optimization/
   config/config.yaml
   data/{sample_input.csv, processed/}
   notebooks/01_exploration.ipynb
+  plot_specs/*.json          # builtin declarative charts
   src/{data_loader, data_validation, feature_engineering, model_baseline,
        model_ml, model_selection, forecasting_pipeline, optimization_engine,
        evaluation, visualization, explainability, utils}.py
-  tests/{test_data_validation, test_feature_engineering, test_optimization_engine}.py
-  outputs/{forecasts.csv, recommendations.csv, model_metrics.csv, plots/}
+  src/plotting/              # PlotSpec engine (datasets, spec, renderer, CLI)
+  tests/{test_data_validation, test_feature_engineering, test_optimization_engine,
+         test_plotting}.py
+  outputs/{forecasts.csv, recommendations.csv, model_metrics.csv,
+           holdout_predictions.csv, plots/}
   main.py
 ```

@@ -1,0 +1,19 @@
+{
+  "dataset": "recommendations",
+  "transform": {
+    "pivot": {
+      "index": "department",
+      "columns": "risk_flag",
+      "values": "forecast_units",
+      "aggfunc": "count"
+    }
+  },
+  "chart": {
+    "kind": "heatmap"
+  },
+  "style": {
+    "title": "Inventory Risk Heatmap (recommendation counts)",
+    "figsize": [9, 5]
+  },
+  "output": "inventory_risk_heatmap.png"
+}

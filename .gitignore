@@ -10,6 +10,7 @@ __pycache__/
 
 # Generated outputs
 retail_forecasting_optimization/outputs/*.csv
+retail_forecasting_optimization/outputs/*.json
 retail_forecasting_optimization/outputs/*.log
 retail_forecasting_optimization/outputs/plots/*.png
 retail_forecasting_optimization/data/processed/*.csv

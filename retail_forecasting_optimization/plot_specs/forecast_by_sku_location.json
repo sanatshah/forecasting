@@ -1,0 +1,24 @@
+{
+  "dataset": "forecasts",
+  "transform": {
+    "top_groups": {
+      "by": "series_id",
+      "value": "forecast_units",
+      "n": 6,
+      "agg": "sum"
+    }
+  },
+  "chart": {
+    "kind": "line",
+    "x": "date",
+    "y": "forecast_units",
+    "series": "series_id"
+  },
+  "style": {
+    "title": "Forward Forecast by SKU/Location (top 6 series)",
+    "xlabel": "Date",
+    "ylabel": "Forecast units",
+    "figsize": [10, 5]
+  },
+  "output": "forecast_by_sku_location.png"
+}

@@ -16,6 +16,7 @@ paths:
   forecasts_csv: outputs/forecasts.csv
   recommendations_csv: outputs/recommendations.csv
   metrics_csv: outputs/model_metrics.csv
+  holdout_predictions_csv: outputs/holdout_predictions.csv
   quality_report_csv: outputs/data_quality_report.csv
 
 # -----------------------------------------------------------------------------

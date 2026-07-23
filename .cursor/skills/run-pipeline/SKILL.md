@@ -74,10 +74,23 @@ Written under `outputs/` (paths from `config/config.yaml`):
 | `forecasts.csv` | Daily forward forecasts per series |
 | `recommendations.csv` | Inventory/markdown recommendations |
 | `model_metrics.csv` | Per-model evaluation metrics |
+| `holdout_predictions.csv` | Holdout actual vs forecast for the best model |
 | `data_quality_report.csv` | Validation findings |
-| `plots/*.png` | Actual vs forecast, risk heatmap, recommendation summary, etc. |
+| `plots/*.png` | Charts from `plot_specs/*.json` (declarative plot engine) |
 
 Also writes `data/processed/cleaned.csv`.
+
+## Ad-hoc plots (after a run)
+
+To create a new chart from a prompt without re-running the full pipeline, use the **create-plot** skill:
+
+```bash
+python -m src.plotting list-datasets
+python -m src.plotting describe forecasts
+python -m src.plotting render --spec outputs/adhoc_example.json
+```
+
+Builtin charts live in `plot_specs/*.json` and are regenerated at the end of every pipeline run.
 
 ## Success criteria
 

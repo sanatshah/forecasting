@@ -1,0 +1,25 @@
+{
+  "dataset": "metrics",
+  "transform": {
+    "filters": [
+      {"col": "level", "op": "eq", "value": "channel"}
+    ],
+    "groupby": {
+      "by": ["group"],
+      "agg": {"wape": "mean"}
+    },
+    "sort": {"by": "wape", "ascending": true}
+  },
+  "chart": {
+    "kind": "barh",
+    "x": "group",
+    "y": "wape"
+  },
+  "style": {
+    "title": "WAPE by Channel",
+    "xlabel": "WAPE",
+    "figsize": [9, 5],
+    "legend": false
+  },
+  "output": "wape_by_channel.png"
+}
