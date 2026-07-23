@@ -133,6 +133,12 @@ expected_margin, objective_score, reason_code, explanation`.
   (LightGBM -> XGBoost -> sklearn HistGradientBoosting, first available) trained
   across all series on lag/rolling/price/promo/calendar/hierarchy/inventory
   features. Multi-step forecasts are produced **recursively**.
+- **Promo uplift ratio**: for each series, the trailing 28-day mean demand on
+  prior promo days divided by mean demand on prior non-promo days. It is sourced
+  from `units_sold` and `promo_flag`, recomputed on every batch or recursive
+  feature build, and defaults to `1.0` until a usable baseline exists. Both
+  inputs are shifted one day so the model can use historical promo response
+  without seeing the current target.
 - **Advanced placeholder**: `AdvancedForecasterInterface` in `src/model_ml.py`
   is a clean hook to plug in foundation models (Chronos, TimesFM, PatchTST)
   without changing the pipeline. It does not require heavy dependencies to

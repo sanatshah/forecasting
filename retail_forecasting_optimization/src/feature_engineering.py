@@ -116,6 +116,48 @@ def _add_promo_features(df: pd.DataFrame, date_col: str) -> pd.DataFrame:
     return df
 
 
+def _add_promo_uplift_ratio(
+    df: pd.DataFrame, target: str, window: int
+) -> pd.DataFrame:
+    """Estimate each series' trailing promo lift from strictly prior demand.
+
+    Demand and promo status are shifted together so each row uses only
+    completed observations. The neutral value 1.0 is used until both promo and
+    non-promo history exist, or when the non-promo baseline is zero.
+    """
+    if not {"promo_flag", target}.issubset(df.columns):
+        return df
+
+    series = df["series_id"]
+    shifted_demand = df.groupby("series_id")[target].shift(1)
+    shifted_promo = df.groupby("series_id")["promo_flag"].shift(1)
+
+    promo_mean = (
+        shifted_demand.where(shifted_promo.eq(1))
+        .groupby(series)
+        .rolling(window, min_periods=1)
+        .mean()
+        .reset_index(level=0, drop=True)
+    )
+    non_promo_mean = (
+        shifted_demand.where(shifted_promo.eq(0))
+        .groupby(series)
+        .rolling(window, min_periods=1)
+        .mean()
+        .reset_index(level=0, drop=True)
+    )
+
+    ratio = promo_mean / non_promo_mean
+    valid = (
+        promo_mean.notna()
+        & non_promo_mean.notna()
+        & non_promo_mean.ne(0)
+        & np.isfinite(ratio)
+    )
+    df["promo_uplift_ratio"] = ratio.where(valid, 1.0).astype("float64")
+    return df
+
+
 def _add_lag_features(
     df: pd.DataFrame, target: str, lags: List[int]
 ) -> pd.DataFrame:
@@ -217,6 +259,9 @@ def build_features(df: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:
     df = _add_calendar_features(df, date_col)
     df = _add_price_features(df)
     df = _add_promo_features(df, date_col)
+    df = _add_promo_uplift_ratio(
+        df, target, feat_cfg["wos_demand_window"]
+    )
     df = _add_lag_features(df, target, feat_cfg["lags"])
     df = _add_rolling_features(df, target, feat_cfg["rolling_windows"])
     df = _add_inventory_features(df, feat_cfg)
@@ -249,6 +294,7 @@ def get_feature_columns(df: pd.DataFrame, config: Dict[str, Any]) -> List[str]:
         "promo_flag",
         "days_since_last_promo",
         "days_until_next_promo",
+        "promo_uplift_ratio",
         "holiday_flag",
         "dow",
         "week_of_year",

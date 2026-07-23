@@ -50,6 +50,54 @@ def test_rolling_excludes_current_day(sample_df, config):
         assert np.allclose(got[mask].to_numpy(), manual[mask].to_numpy())
 
 
+def test_promo_uplift_ratio_uses_only_prior_demand(config):
+    """Promo uplift at row t must not change when row t demand changes."""
+    frame = pd.DataFrame(
+        {
+            "series_id": ["series_a"] * 5,
+            "date": pd.date_range("2025-01-01", periods=5, freq="D"),
+            "units_sold": [10.0, 20.0, 12.0, 30.0, 999.0],
+            "promo_flag": [0, 1, 0, 1, 0],
+        }
+    )
+
+    feats = build_features(frame, config)
+    changed = frame.copy()
+    changed.loc[4, "units_sold"] = 1.0
+    changed_feats = build_features(changed, config)
+
+    assert np.isclose(feats.loc[2, "promo_uplift_ratio"], 2.0)
+    assert np.isclose(feats.loc[4, "promo_uplift_ratio"], 25.0 / 11.0)
+    assert np.isclose(
+        feats.loc[4, "promo_uplift_ratio"],
+        changed_feats.loc[4, "promo_uplift_ratio"],
+    )
+
+
+def test_promo_uplift_ratio_defaults_to_one(config):
+    """Missing promo history and a zero baseline should produce neutral lift."""
+    frame = pd.DataFrame(
+        {
+            "series_id": ["no_promo"] * 3 + ["zero_baseline"] * 3,
+            "date": list(pd.date_range("2025-01-01", periods=3, freq="D")) * 2,
+            "units_sold": [5.0, 6.0, 7.0, 0.0, 10.0, 5.0],
+            "promo_flag": [0, 0, 0, 0, 1, 0],
+        }
+    )
+
+    feats = build_features(frame, config)
+
+    assert np.allclose(
+        feats.loc[feats["series_id"] == "no_promo", "promo_uplift_ratio"],
+        1.0,
+    )
+    zero_baseline_last = feats.loc[
+        feats["series_id"] == "zero_baseline", "promo_uplift_ratio"
+    ].iloc[-1]
+    assert zero_baseline_last == 1.0
+    assert np.isfinite(feats["promo_uplift_ratio"]).all()
+
+
 def test_price_and_calendar_features(sample_df, config):
     """Price and calendar derived features should be present and sane."""
     feats = _featured(sample_df, config)
@@ -72,4 +120,5 @@ def test_feature_columns_subset_of_frame(sample_df, config):
     feats = _featured(sample_df, config)
     cols = get_feature_columns(feats, config)
     assert len(cols) > 0
+    assert "promo_uplift_ratio" in cols
     assert set(cols).issubset(set(feats.columns))
