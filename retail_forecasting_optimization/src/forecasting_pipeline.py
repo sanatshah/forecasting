@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from .model_baseline import get_baseline_models
+from .model_chronos import ChronosForecaster
 from .model_ml import MLForecaster
 from .utils import get_logger, resolve_path
 
@@ -114,6 +115,20 @@ def _forecast_with_best(
             frame = g[[date_col] + dims].copy()
             frame["series_id"] = sid
             frame["forecast_units"] = np.round(preds, 2)
+            frames.append(frame)
+    elif best_model_name == ChronosForecaster.name:
+        model = ChronosForecaster(config)
+        if not model.is_available():
+            raise RuntimeError(
+                "Chronos was selected as best model but is no longer available."
+            )
+        model.fit(cleaned_df)
+        for sid, g in future_df.sort_values(date_col).groupby("series_id"):
+            h = len(g)
+            preds = model.predict(sid, h)
+            frame = g[[date_col] + dims].copy()
+            frame["series_id"] = sid
+            frame["forecast_units"] = np.round(np.asarray(preds[:h]), 2)
             frames.append(frame)
     else:
         models = get_baseline_models(config)

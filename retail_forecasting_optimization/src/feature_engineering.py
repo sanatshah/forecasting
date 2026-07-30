@@ -76,15 +76,24 @@ def _add_price_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _add_promo_features(df: pd.DataFrame, date_col: str) -> pd.DataFrame:
-    """Add days-since-last-promo and days-until-next-promo per series.
+def _add_promo_features(
+    df: pd.DataFrame, date_col: str, feat_cfg: Dict[str, Any]
+) -> pd.DataFrame:
+    """Add promo timing and historical promo-response features per series.
 
     ``days_until_next_promo`` uses future promo *calendar* information, which is
     legitimately known in advance (promotions are planned), so it is treated as
     a known covariate rather than leakage.
+
+    ``promo_uplift_ratio`` compares mean demand on prior promo days to prior
+    non-promo days using ``shift(1)`` demand so the current day's target never
+    enters the ratio.
     """
     if "promo_flag" not in df.columns:
         return df
+
+    win = feat_cfg["wos_demand_window"]
+    has_demand = "units_sold" in df.columns
 
     def _per_series(g: pd.DataFrame) -> pd.DataFrame:
         g = g.sort_values(date_col)
@@ -107,6 +116,26 @@ def _add_promo_features(df: pd.DataFrame, date_col: str) -> pd.DataFrame:
             until[i] = (nxt - i) if nxt >= 0 else 9999
         g["days_since_last_promo"] = since
         g["days_until_next_promo"] = until
+
+        if has_demand:
+            demand = g["units_sold"].shift(1)
+            past_promo = g["promo_flag"].fillna(0).astype(int).shift(1)
+            promo_demand = demand.where(past_promo == 1)
+            non_promo_demand = demand.where(past_promo != 1)
+
+            promo_trail = promo_demand.rolling(win, min_periods=1).mean()
+            non_promo_trail = non_promo_demand.rolling(win, min_periods=1).mean()
+            promo_exp = promo_demand.expanding(min_periods=1).mean()
+            non_promo_exp = non_promo_demand.expanding(min_periods=1).mean()
+
+            promo_mean = promo_trail.where(promo_trail.notna(), promo_exp)
+            non_promo_mean = non_promo_trail.where(non_promo_trail.notna(), non_promo_exp)
+            ratio = safe_divide(
+                promo_mean.to_numpy(), non_promo_mean.to_numpy(), fill=1.0
+            )
+            ratio = np.where(promo_mean.isna().to_numpy(), 1.0, ratio)
+            g["promo_uplift_ratio"] = ratio
+
         return g
 
     df = (
@@ -216,7 +245,7 @@ def build_features(df: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:
 
     df = _add_calendar_features(df, date_col)
     df = _add_price_features(df)
-    df = _add_promo_features(df, date_col)
+    df = _add_promo_features(df, date_col, feat_cfg)
     df = _add_lag_features(df, target, feat_cfg["lags"])
     df = _add_rolling_features(df, target, feat_cfg["rolling_windows"])
     df = _add_inventory_features(df, feat_cfg)
@@ -249,6 +278,7 @@ def get_feature_columns(df: pd.DataFrame, config: Dict[str, Any]) -> List[str]:
         "promo_flag",
         "days_since_last_promo",
         "days_until_next_promo",
+        "promo_uplift_ratio",
         "holiday_flag",
         "dow",
         "week_of_year",

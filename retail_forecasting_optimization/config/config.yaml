@@ -107,6 +107,14 @@ models:
     max_series: 5
     order: [1, 1, 1]
     seasonal_order: [1, 1, 1, 7]
+  # Optional Chronos-Bolt foundation model (skipped when chronos-forecasting/torch absent).
+  chronos:
+    enabled: true
+    model_id: amazon/chronos-bolt-small
+    device: cpu
+    torch_dtype: float32
+    context_length: 512
+    quantile_level: 0.5
 
 # -----------------------------------------------------------------------------
 # Optimization engine

@@ -16,7 +16,7 @@ Leakage control
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -24,6 +24,7 @@ import pandas as pd
 from .evaluation import full_evaluation, wape
 from .feature_engineering import build_features
 from .model_baseline import get_baseline_models
+from .model_chronos import ChronosForecaster
 from .model_ml import MLForecaster
 from .utils import get_logger, resolve_path
 
@@ -117,6 +118,40 @@ def _ml_predictions(
     return pd.concat(frames, ignore_index=True), model
 
 
+def _advanced_predictions(
+    cleaned_df: pd.DataFrame,
+    holdout: pd.DataFrame,
+    config: Dict[str, Any],
+) -> Optional[pd.DataFrame]:
+    """Fit Chronos on train history and predict the holdout window.
+
+    Returns ``None`` when Chronos deps are unavailable or the adapter is
+    disabled, so the rest of the backtest proceeds without it.
+    """
+    model = ChronosForecaster(config)
+    if not model.is_available():
+        return None
+
+    date_col = config["data"]["date_col"]
+    target = config["data"]["target_col"]
+    cutoff = time_based_cutoff(cleaned_df, date_col, config["forecast"]["holdout_days"])
+    train = cleaned_df[cleaned_df[date_col] <= cutoff]
+    model.fit(train)
+
+    dims = _dimension_columns(holdout)
+    frames: List[pd.DataFrame] = []
+    for sid, g in holdout.sort_values(date_col).groupby("series_id"):
+        h = len(g)
+        preds = model.predict(sid, h)
+        frame = g[[date_col] + dims].copy()
+        frame["series_id"] = sid
+        frame["actual"] = g[target].to_numpy()
+        frame["forecast"] = np.asarray(preds[:h], dtype="float64")
+        frames.append(frame)
+    logger.info("Chronos holdout predictions for %d series", len(frames))
+    return pd.concat(frames, ignore_index=True)
+
+
 def compare_models(
     cleaned_df: pd.DataFrame,
     features_df: pd.DataFrame,
@@ -142,6 +177,13 @@ def compare_models(
     )
 
     predictions = _baseline_predictions(cleaned_df, holdout, config)
+
+    # Run Chronos before the GBDT train so torch initializes ahead of OpenMP
+    # backends (LightGBM/XGBoost), avoiding an intermittent process deadlock.
+    adv = _advanced_predictions(cleaned_df, holdout, config)
+    if adv is not None:
+        predictions[ChronosForecaster.name] = adv
+
     ml_pred, ml_model = _ml_predictions(cleaned_df, features_df, holdout, config)
     predictions[MLForecaster.name] = ml_pred
 

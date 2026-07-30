@@ -20,3 +20,10 @@ seaborn>=0.12
 
 # Testing
 pytest>=7.0
+
+# Optional foundation model (Chronos-Bolt via AdvancedForecasterInterface).
+# Requires Python 3.9+ for chronos-forecasting 1.5.x; Chronos-2 needs 3.10+.
+# Install into the project venv when you want Chronos in the model comparison:
+#   ./.venv/bin/pip install "chronos-forecasting<2" torch
+# chronos-forecasting<2
+# torch

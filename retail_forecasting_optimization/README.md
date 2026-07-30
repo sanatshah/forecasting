@@ -133,10 +133,11 @@ expected_margin, objective_score, reason_code, explanation`.
   (LightGBM -> XGBoost -> sklearn HistGradientBoosting, first available) trained
   across all series on lag/rolling/price/promo/calendar/hierarchy/inventory
   features. Multi-step forecasts are produced **recursively**.
-- **Advanced placeholder**: `AdvancedForecasterInterface` in `src/model_ml.py`
-  is a clean hook to plug in foundation models (Chronos, TimesFM, PatchTST)
-  without changing the pipeline. It does not require heavy dependencies to
-  import.
+- **Chronos (optional)**: `ChronosForecaster` in `src/model_chronos.py`
+  implements `AdvancedForecasterInterface` with Amazon Chronos-Bolt
+  (`amazon/chronos-bolt-small` by default). It joins the WAPE backtest when
+  `chronos-forecasting` and `torch` are installed; otherwise it is skipped.
+  Explainability remains ML-based (Chronos has no feature importances).
 
 Splitting is strictly **time-based**: the trailing `holdout_days` per series are
 held out for evaluation, and the ML model is trained only on earlier rows.
@@ -188,8 +189,9 @@ All thresholds, guardrails, elasticities, and weights live in
 
 ## 11. Future enhancements
 
-- Plug in foundation models via `AdvancedForecasterInterface` (Chronos /
-  TimesFM / PatchTST).
+- Chronos-Bolt is wired via `AdvancedForecasterInterface`
+  (`src/model_chronos.py`); optional follow-ups include Chronos-2 /
+  TimesFM / PatchTST adapters and richer covariate support.
 - Replace the greedy markdown search with a constrained optimizer
   (`scipy.optimize` / LP / MILP) across the assortment.
 - Probabilistic forecasts (quantiles) to drive service-level safety stock.
