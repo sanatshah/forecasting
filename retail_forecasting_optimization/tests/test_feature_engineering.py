@@ -73,3 +73,4 @@ def test_feature_columns_subset_of_frame(sample_df, config):
     cols = get_feature_columns(feats, config)
     assert len(cols) > 0
     assert set(cols).issubset(set(feats.columns))
+    assert "promo_uplift_ratio" in cols
