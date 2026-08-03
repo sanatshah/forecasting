@@ -168,9 +168,9 @@ def test_holdout_forecasts_aggregation_and_metrics(tmp_path):
     assert body["actuals"] == [15.0, 20.0]
     assert body["predictions"] == [15.0, 16.0]
     assert body["metrics"] is not None
-    # |15-15| + |20-16| / (15+20) = 4/35
-    assert body["metrics"]["wape"] == pytest.approx(4 / 35, rel=1e-4)
-    assert body["metrics"]["mae"] == pytest.approx(2.0, rel=1e-4)
+    # |15-15| + |20-16| / (15+20) = 4/35, rounded to 4 dp in the API payload
+    assert body["metrics"]["wape"] == round(4 / 35, 4)
+    assert body["metrics"]["mae"] == 2.0
     assert "SKU_A" in body["skuIds"]
     assert "SKU_B" in body["skuIds"]
     assert Path(body["meta"]["source"]).name == "holdout_predictions.csv"
