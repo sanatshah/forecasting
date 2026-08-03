@@ -51,6 +51,8 @@ export function ForecastsPage() {
       setHoldout(null);
       return;
     }
+    // Drop prior SKU holdout immediately so charts/KPIs cannot mix identities.
+    setHoldout(null);
     let cancelled = false;
     api
       .holdoutForecasts(selectedSku)
@@ -90,7 +92,9 @@ export function ForecastsPage() {
   );
 
   const holdoutAvailable =
-    Boolean(holdout?.meta.available) && (holdout?.dates.length ?? 0) > 0;
+    Boolean(holdout?.meta.available) &&
+    (holdout?.dates.length ?? 0) > 0 &&
+    holdout?.meta.skuId === selectedSku;
 
   useEffect(() => {
     if (!holdoutAvailable && viewMode !== "forward") {
