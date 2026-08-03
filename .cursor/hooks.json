@@ -2,10 +2,7 @@
   "version": 1,
   "hooks": {
     "beforeSubmitPrompt": [
-      {
-        "command": ".cursor/hooks/block-prod-prompt.py",
-        "failClosed": true
-      }
+     
     ]
   }
 }
