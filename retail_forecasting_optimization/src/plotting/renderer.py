@@ -126,13 +126,6 @@ def _apply_pivot(df: pd.DataFrame, spec: PivotSpec) -> pd.DataFrame:
             aggfunc=spec.aggfunc,
             fill_value=0,
         )
-    # #region agent log
-    import json, time
-    _vals_mean = float(df[spec.values].mean())
-    _log = {"sessionId": "ba7af0", "runId": "post-fix", "hypothesisId": "A", "location": "renderer.py:_apply_pivot", "message": "pivot result", "data": {"aggfunc": spec.aggfunc, "values_col": spec.values, "values_mean": _vals_mean, "pivot_sample": pivot.iloc[0].to_dict() if len(pivot) else {}, "input_rows": len(df)}, "timestamp": int(time.time() * 1000)}
-    with open("/Users/sunny/Projects/forecasting/.cursor/debug-ba7af0.log", "a") as _f:
-        _f.write(json.dumps(_log) + "\n")
-    # #endregion
     return pivot
 
 
