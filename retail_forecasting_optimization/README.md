@@ -70,6 +70,34 @@ platform/Python version, the system automatically falls back to scikit-learn's
 
 The run prints an executive summary and writes all artifacts to `outputs/`.
 
+### Web dashboard (React)
+
+A Macy's-themed React dashboard reads live pipeline outputs via a FastAPI API.
+
+**Prerequisites:** Run the pipeline first so `outputs/*.csv` exist.
+
+```bash
+# Terminal 1 — API (from retail_forecasting_optimization/)
+./.venv/bin/pip install -r requirements.txt
+./.venv/bin/uvicorn src.dashboard_api:app --reload --port 8000
+
+# Terminal 2 — UI
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173. Vite proxies `/api` to the API on port 8000.
+
+| Page | Content |
+|------|---------|
+| Overview | KPIs, risk distribution, actions by department |
+| Recommendations | Filterable decision table with explanations |
+| Forecasts | SKU selector + forward demand curves |
+| Accuracy | WAPE by department for the best model |
+
+Production build: `cd frontend && npm run build` (output in `frontend/dist/`).
+
 ## 5. Input data schema
 
 Daily rows at `date x sku_id x location_id x channel` grain:

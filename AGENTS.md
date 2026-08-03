@@ -5,11 +5,10 @@
 ### What this repo is
 
 The only runnable product in this repository is the **Retail Demand Forecasting &
-Optimization** pipeline under `retail_forecasting_optimization/`. It is a
-single-language **Python batch/CLI pipeline** (no web server, database, frontend,
-or long-running services), despite workspace rules that mention FastAPI/React/
-Spanner/BigQuery — none of that code exists here. `demo_prompts/` holds a synthetic
-dataset generator and prompt text; it is not a service.
+Optimization** pipeline under `retail_forecasting_optimization/`. It is primarily a
+**Python batch/CLI pipeline**, with an optional **Macy's-themed React dashboard**
+(`frontend/` + FastAPI in `src/dashboard_api.py`) that reads live `outputs/` CSVs.
+`demo_prompts/` holds a synthetic dataset generator and prompt text; it is not a service.
 
 ### Environment
 
@@ -29,6 +28,8 @@ Run these from `retail_forecasting_optimization/` (see `README.md` and the
 - Tests: `./.venv/bin/python -m pytest -q`
 - Fast smoke run (4 series, ~10s): `./.venv/bin/python main.py --quick`
 - Full pipeline (~70s): `./.venv/bin/python main.py`
+- Dashboard API: `./.venv/bin/uvicorn src.dashboard_api:app --reload --port 8000`
+- Dashboard UI: `cd frontend && npm install && npm run dev` (see README)
 
 There is **no linter configured** (no ruff/flake8/pylint config or dependency), so
 there is no lint step to run.
