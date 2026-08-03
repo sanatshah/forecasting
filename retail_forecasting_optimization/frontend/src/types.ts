@@ -101,3 +101,29 @@ export interface DepartmentMetricsResponse {
   meta: { snapshotDate: string; model: string };
   departments: DepartmentMetric[];
 }
+
+export interface HoldoutMetrics {
+  mae: number | null;
+  wape: number | null;
+  n: number;
+}
+
+export interface HoldoutForecastsResponse {
+  meta: {
+    recipe: string;
+    available: boolean;
+    source: string | null;
+    skuId: string | null;
+    snapshotDate: string | null;
+    holdoutStart: string | null;
+    holdoutEnd: string | null;
+    message: string | null;
+  };
+  dates: string[];
+  actuals: number[];
+  predictions: number[];
+  metrics: HoldoutMetrics | null;
+  skuIds: string[];
+}
+
+export type ForecastViewMode = "forward" | "holdout" | "combined";

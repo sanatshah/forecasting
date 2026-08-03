@@ -94,3 +94,18 @@ def metrics_department() -> Dict[str, Any]:
         return aggregations.department_metrics(get_config())
     except (FileNotFoundError, KeyError) as exc:
         raise _dataset_error(exc) from exc
+
+
+@app.get("/api/holdout-forecasts")
+def holdout_forecasts(
+    sku_id: Optional[str] = Query(default=None, description="SKU to return holdout series for"),
+) -> Dict[str, Any]:
+    """Holdout-window actual vs predicted demand for a SKU.
+
+    Returns ``meta.available=false`` (HTTP 200) when the holdout CSV is missing
+    so the Forecasts page can stay on the forward-only view.
+    """
+    try:
+        return aggregations.holdout_forecasts(get_config(), sku_id=sku_id)
+    except KeyError as exc:
+        raise _dataset_error(exc) from exc

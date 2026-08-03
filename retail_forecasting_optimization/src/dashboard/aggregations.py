@@ -4,9 +4,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 
-from ..plotting.datasets import load_dataset
+from ..evaluation import mae as mae_metric
+from ..evaluation import wape as wape_metric
+from ..plotting.datasets import dataset_path, load_dataset
 
 MAX_RECOMMENDATIONS = 500
 
@@ -263,4 +266,121 @@ def department_metrics(config: Dict[str, Any]) -> Dict[str, Any]:
             "source": str(Path(config["paths"]["metrics_csv"]).resolve()),
         },
         "departments": rows,
+    }
+
+
+def _empty_holdout_response(
+    *,
+    available: bool,
+    source: Optional[str] = None,
+    sku_id: Optional[str] = None,
+    message: Optional[str] = None,
+    sku_ids: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    return {
+        "meta": {
+            "recipe": "holdout-forecasts",
+            "available": available,
+            "source": source,
+            "skuId": sku_id,
+            "snapshotDate": None,
+            "holdoutStart": None,
+            "holdoutEnd": None,
+            "message": message,
+        },
+        "dates": [],
+        "actuals": [],
+        "predictions": [],
+        "metrics": None,
+        "skuIds": sku_ids or [],
+    }
+
+
+def holdout_forecasts(
+    config: Dict[str, Any],
+    sku_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Aggregate holdout actual vs predicted demand for a SKU.
+
+    When ``holdout_predictions.csv`` is missing, returns ``available=False`` so
+    the UI can fall back to the forward-only Forecasts view without a hard error.
+    """
+    path = dataset_path(config, "holdout_predictions")
+    if not path.is_file():
+        return _empty_holdout_response(
+            available=False,
+            source=str(path.resolve()),
+            sku_id=sku_id,
+            message="Holdout predictions not found. Run the pipeline to generate them.",
+        )
+
+    df = load_dataset(config, "holdout_predictions").copy()
+    if "date" not in df.columns or "actual" not in df.columns or "forecast" not in df.columns:
+        return _empty_holdout_response(
+            available=False,
+            source=str(path.resolve()),
+            sku_id=sku_id,
+            message="Holdout predictions file is missing required columns.",
+        )
+
+    df["date"] = pd.to_datetime(df["date"])
+    sku_ids = sorted(df["sku_id"].dropna().astype(str).unique().tolist()) if "sku_id" in df.columns else []
+
+    if not sku_id:
+        if sku_ids:
+            sku_id = sku_ids[0]
+        else:
+            return _empty_holdout_response(
+                available=True,
+                source=str(path.resolve()),
+                message="No SKUs present in holdout predictions.",
+                sku_ids=[],
+            )
+
+    sub = df[df["sku_id"].astype(str) == str(sku_id)] if "sku_id" in df.columns else df
+    if sub.empty:
+        return _empty_holdout_response(
+            available=True,
+            source=str(path.resolve()),
+            sku_id=str(sku_id),
+            message=f"No holdout rows for sku_id={sku_id}.",
+            sku_ids=sku_ids,
+        )
+
+    daily = (
+        sub.groupby("date", as_index=False)
+        .agg(actual=("actual", "sum"), forecast=("forecast", "sum"))
+        .sort_values("date")
+    )
+    dates = daily["date"].dt.strftime("%Y-%m-%d").tolist()
+    actuals = [float(v) for v in daily["actual"].tolist()]
+    predictions = [float(v) for v in daily["forecast"].tolist()]
+
+    actual_arr = np.asarray(actuals, dtype="float64")
+    pred_arr = np.asarray(predictions, dtype="float64")
+    wape_val = wape_metric(actual_arr, pred_arr)
+    mae_val = mae_metric(actual_arr, pred_arr)
+    metrics = {
+        "mae": None if np.isnan(mae_val) else round(float(mae_val), 4),
+        "wape": None if np.isnan(wape_val) else round(float(wape_val), 4),
+        "n": int(len(actuals)),
+    }
+
+    snap = dates[-1] if dates else None
+    return {
+        "meta": {
+            "recipe": "holdout-forecasts",
+            "available": True,
+            "source": str(path.resolve()),
+            "skuId": str(sku_id),
+            "snapshotDate": snap,
+            "holdoutStart": dates[0] if dates else None,
+            "holdoutEnd": dates[-1] if dates else None,
+            "message": None,
+        },
+        "dates": dates,
+        "actuals": actuals,
+        "predictions": predictions,
+        "metrics": metrics,
+        "skuIds": sku_ids,
     }
