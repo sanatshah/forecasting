@@ -3,7 +3,10 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -30,6 +33,10 @@ const RISK_COLORS: Record<string, string> = {
 
 function formatModel(name: string) {
   return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatPieLabel({ name, value }: { name: string; value: number }) {
+  return `${name}: ${value}`;
 }
 
 export function OverviewPage() {
@@ -92,13 +99,30 @@ export function OverviewPage() {
       <div className="chart-grid">
         <Panel title="Risk Distribution" caption="SKU-location recommendations by risk flag">
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={riskData} layout="vertical" margin={{ left: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e8e8e8" />
-              <XAxis type="number" />
-              <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 12 }} />
-              <Tooltip />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} />
-            </BarChart>
+            <PieChart>
+              <Tooltip
+                formatter={(value: number, name: string) => [value, name]}
+                labelFormatter={(label) => String(label)}
+              />
+              <Legend
+                formatter={(value: string) => value.replace(/_/g, " ")}
+                wrapperStyle={{ fontSize: 12 }}
+              />
+              <Pie
+                data={riskData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                outerRadius={95}
+                label={formatPieLabel}
+                labelLine={{ stroke: "#666", strokeWidth: 1 }}
+              >
+                {riskData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.fill} />
+                ))}
+              </Pie>
+            </PieChart>
           </ResponsiveContainer>
         </Panel>
 

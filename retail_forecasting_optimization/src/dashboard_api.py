@@ -71,6 +71,19 @@ def sku_forecasts(top_skus: int = Query(default=8, ge=1, le=50)) -> Dict[str, An
         raise _dataset_error(exc) from exc
 
 
+@app.get("/api/holdout-forecasts")
+def holdout_forecasts(sku_id: str = Query(..., min_length=1)) -> Dict[str, Any]:
+    try:
+        return aggregations.holdout_forecasts(get_config(), sku_id)
+    except FileNotFoundError as exc:
+        raise _dataset_error(exc) from exc
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={"message": str(exc), "error": str(exc)},
+        ) from exc
+
+
 @app.get("/api/recommendations")
 def recommendations(
     risk: Optional[str] = None,

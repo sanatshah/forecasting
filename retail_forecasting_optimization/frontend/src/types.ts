@@ -53,6 +53,30 @@ export interface SkuForecastsResponse {
   skus: SkuForecast[];
 }
 
+export interface HoldoutForecastsResponse {
+  meta: {
+    skuId: string;
+    snapshotDate: string | null;
+    holdoutStart: string | null;
+    holdoutEnd: string | null;
+    horizonDays: number;
+    department: string;
+    class: string;
+    subclass: string;
+    lifecycle: string;
+    source?: string;
+  };
+  dates: string[];
+  actuals: number[];
+  predictions: number[];
+  metrics: {
+    mae: number;
+    wape: number | null;
+  };
+}
+
+export type ForecastViewMode = "forward" | "holdout" | "combined";
+
 export interface RecommendationRow {
   date: string;
   skuId: string;

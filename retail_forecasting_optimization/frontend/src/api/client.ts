@@ -2,6 +2,7 @@ import type {
   ActionBreakdownResponse,
   ApiError,
   DepartmentMetricsResponse,
+  HoldoutForecastsResponse,
   RecommendationsResponse,
   SkuForecastsResponse,
   SummaryResponse,
@@ -34,6 +35,10 @@ export const api = {
   actionBreakdown: () => fetchJson<ActionBreakdownResponse>("/api/action-breakdown"),
   skuForecasts: (topSkus = 8) =>
     fetchJson<SkuForecastsResponse>(`/api/sku-forecasts?top_skus=${topSkus}`),
+  holdoutForecasts: (skuId: string) =>
+    fetchJson<HoldoutForecastsResponse>(
+      `/api/holdout-forecasts?sku_id=${encodeURIComponent(skuId)}`,
+    ),
   recommendations: (params?: {
     risk?: string;
     action?: string;

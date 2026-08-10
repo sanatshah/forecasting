@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from ..evaluation import mae, wape
 from ..plotting.datasets import load_dataset
 
 MAX_RECOMMENDATIONS = 500
@@ -160,6 +161,60 @@ def sku_forecasts(config: Dict[str, Any], top_skus: int) -> Dict[str, Any]:
         },
         "dates": dates,
         "skus": skus,
+    }
+
+
+def holdout_forecasts(config: Dict[str, Any], sku_id: str) -> Dict[str, Any]:
+    df = load_dataset(config, "holdout_predictions")
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"])
+
+    sub = df[df["sku_id"].astype(str) == str(sku_id)]
+    if sub.empty:
+        raise KeyError(f"SKU {sku_id!r} not found in holdout predictions")
+
+    meta_row = sub.iloc[0]
+    lifecycle_col = (
+        "product_lifecycle_status"
+        if "product_lifecycle_status" in sub.columns
+        else "lifecycle"
+    )
+
+    daily = (
+        sub.groupby("date")[["actual", "forecast"]]
+        .sum()
+        .sort_index()
+    )
+    dates = daily.index.strftime("%Y-%m-%d").tolist()
+    actuals = daily["actual"].astype(float).tolist()
+    predictions = daily["forecast"].astype(float).tolist()
+
+    actual_arr = daily["actual"].to_numpy(dtype="float64")
+    forecast_arr = daily["forecast"].to_numpy(dtype="float64")
+    wape_val = wape(actual_arr, forecast_arr)
+    mae_val = mae(actual_arr, forecast_arr)
+
+    return {
+        "meta": {
+            "recipe": "holdout-forecasts",
+            "source": str(Path(config["paths"]["holdout_predictions_csv"]).resolve()),
+            "skuId": str(sku_id),
+            "snapshotDate": dates[-1] if dates else None,
+            "holdoutStart": dates[0] if dates else None,
+            "holdoutEnd": dates[-1] if dates else None,
+            "horizonDays": len(dates),
+            "department": str(meta_row.get("department", "")),
+            "class": str(meta_row.get("class", "")),
+            "subclass": str(meta_row.get("subclass", "")),
+            "lifecycle": str(meta_row.get(lifecycle_col, "")),
+        },
+        "dates": dates,
+        "actuals": actuals,
+        "predictions": predictions,
+        "metrics": {
+            "mae": round(mae_val, 4),
+            "wape": round(wape_val, 6) if not pd.isna(wape_val) else None,
+        },
     }
 
 

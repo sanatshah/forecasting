@@ -1,0 +1,40 @@
+---
+description: Define Recharts render/formatter callbacks outside JSX props
+globs: retail_forecasting_optimization/frontend/**/*.tsx
+alwaysApply: false
+---
+
+# Recharts callbacks outside JSX
+
+Define Recharts (and similar chart library) render, formatter, and label callbacks at module scope or near other helpers — not as inline arrow functions in JSX props.
+
+Inline callbacks are recreated every render, clutter JSX, and are harder to name, test, and reuse.
+
+```tsx
+// ❌ BAD — inline callback in JSX
+<Pie
+  data={riskData}
+  label={({ name, value }) => `${name}: ${value}`}
+/>
+<Tooltip formatter={(value: number, name: string) => [value, name]} />
+<Legend formatter={(value: string) => value.replace(/_/g, " ")} />
+
+// ✅ GOOD — named function, reference passed to prop
+function formatPieLabel({ name, value }: { name: string; value: number }) {
+  return `${name}: ${value}`;
+}
+
+function formatTooltipValue(value: number, name: string) {
+  return [value, name];
+}
+
+function formatLegendLabel(value: string) {
+  return value.replace(/_/g, " ");
+}
+
+<Pie data={riskData} label={formatPieLabel} />
+<Tooltip formatter={formatTooltipValue} />
+<Legend formatter={formatLegendLabel} />
+```
+
+When extracting, match surrounding naming (`formatX`, `renderX`) and place helpers next to related constants or existing formatters in the file.

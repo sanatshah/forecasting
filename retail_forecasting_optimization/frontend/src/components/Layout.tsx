@@ -12,11 +12,14 @@ function StarIcon() {
   );
 }
 
+const navClassName = ({ isActive }: { isActive: boolean }) =>
+  `nav-link${isActive ? " active" : ""}`;
+
 export function Layout({ snapshotDate }: LayoutProps) {
   return (
-    <>
-      <header className="app-header">
-        <div className="header-inner">
+    <div className="app-shell">
+      <aside className="app-sidebar">
+        <header className="sidebar-brand">
           <div className="brand">
             <StarIcon />
             <div>
@@ -27,36 +30,25 @@ export function Layout({ snapshotDate }: LayoutProps) {
           {snapshotDate && (
             <div className="snapshot-badge">Snapshot: {snapshotDate}</div>
           )}
-        </div>
-      </header>
-      <nav className="app-nav">
-        <div className="nav-inner">
-          <NavLink to="/" end className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
+        </header>
+        <nav className="sidebar-nav" aria-label="Main navigation">
+          <NavLink to="/" end className={navClassName}>
             Overview
           </NavLink>
-          <NavLink
-            to="/recommendations"
-            className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
-          >
+          <NavLink to="/recommendations" className={navClassName}>
             Recommendations
           </NavLink>
-          <NavLink
-            to="/forecasts"
-            className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
-          >
+          <NavLink to="/forecasts" className={navClassName}>
             Forecasts
           </NavLink>
-          <NavLink
-            to="/accuracy"
-            className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}
-          >
+          <NavLink to="/accuracy" className={navClassName}>
             Accuracy
           </NavLink>
-        </div>
-      </nav>
+        </nav>
+      </aside>
       <main className="app-main">
         <Outlet />
       </main>
-    </>
+    </div>
   );
 }

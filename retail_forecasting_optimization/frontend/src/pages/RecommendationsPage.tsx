@@ -12,6 +12,12 @@ export function RecommendationsPage() {
   const [department, setDepartment] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  const resetFilters = useCallback(() => {
+    setDepartment("");
+    setRisk("");
+    setAction("");
+  }, []);
+
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
@@ -80,6 +86,9 @@ export function RecommendationsPage() {
             ))}
           </select>
         </div>
+        <button type="button" className="filter-reset-btn" onClick={resetFilters}>
+          Reset
+        </button>
       </div>
 
       <Panel title="Decision Table" caption={`Snapshot ${data.meta.snapshotDate}`}>
