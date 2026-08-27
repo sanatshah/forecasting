@@ -4,10 +4,10 @@ interface LayoutProps {
   snapshotDate?: string;
 }
 
-function StarIcon() {
+function StoreIcon() {
   return (
-    <svg className="brand-star" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2l2.9 6.9 7.5.6-5.7 4.9 1.7 7.3L12 18.5 5.6 21.7l1.7-7.3L1.6 9.5l7.5-.6L12 2z" />
+    <svg className="brand-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 10v10h16V10M3 10l2-6h14l2 6M8 20v-6h4v6M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" />
     </svg>
   );
 }
@@ -21,9 +21,9 @@ export function Layout({ snapshotDate }: LayoutProps) {
       <aside className="app-sidebar">
         <header className="sidebar-brand">
           <div className="brand">
-            <StarIcon />
+            <StoreIcon />
             <div>
-              <div className="brand-title">Macy&apos;s</div>
+              <div className="brand-title">RetailStore</div>
               <div className="brand-subtitle">Demand Planning</div>
             </div>
           </div>

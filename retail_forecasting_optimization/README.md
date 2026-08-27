@@ -72,7 +72,7 @@ The run prints an executive summary and writes all artifacts to `outputs/`.
 
 ### Web dashboard (React)
 
-A Macy's-themed React dashboard reads live pipeline outputs via a FastAPI API.
+A RetailStore-branded React dashboard reads live pipeline outputs via a FastAPI API.
 
 **Prerequisites:** Run the pipeline first so `outputs/*.csv` exist.
 
