@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "model": "ml_gradient_boosting",
+  "recorded_at": "2026-08-27",
+  "source": {
+    "commit": "24ea815e796a8779837731138a646f92eb7a70ea",
+    "pr": 55,
+    "run_command": "./.venv/bin/python main.py",
+    "notes": "Full pipeline on main; Chronos skipped (torch absent). Not a production covariate baseline."
+  },
+  "metrics": {
+    "wape": 0.2722,
+    "mae": 7.67,
+    "rmse": 11.4,
+    "bias": 1.76
+  },
+  "protocol": {
+    "primary_metric": "wape",
+    "wape_definition": "sum(|actual - forecast|) / sum(|actual|)",
+    "holdout_days": 28,
+    "split_method": "time_based_cutoff",
+    "covariate_protocol": "actual_holdout_covariates",
+    "covariate_protocol_label": "actual-promo/actual-covariate holdout (optimistic vs production carry-forward)",
+    "production_covariate_note": "Production forward forecasts zero promo_flag and holiday_flag and carry-forward last price/inventory via build_future_frame; holdout ML backtest uses realized holdout covariates.",
+    "chronos_present": false
+  },
+  "dataset": {
+    "input_csv": "data/sample_input.csv",
+    "n_rows": 43860,
+    "n_series": 60,
+    "holdout_rows": 1680,
+    "date_min": "2024-01-01",
+    "date_max": "2025-12-31",
+    "cutoff_date": "2025-12-03"
+  },
+  "ml_backend": "unknown"
+}

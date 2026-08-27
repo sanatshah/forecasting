@@ -21,6 +21,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from .eval_baseline import (
+    HOLDOUT_ML_COVARIATE_PROTOCOL,
+    HOLDOUT_ML_OPTIMISTIC_EVAL,
+    log_baseline_comparison,
+)
 from .evaluation import full_evaluation, wape
 from .feature_engineering import build_features
 from .model_baseline import get_baseline_models
@@ -156,6 +161,8 @@ def compare_models(
     cleaned_df: pd.DataFrame,
     features_df: pd.DataFrame,
     config: Dict[str, Any],
+    *,
+    quick: bool = False,
 ) -> Dict[str, Any]:
     """Backtest all models and pick the best by overall WAPE.
 
@@ -216,14 +223,21 @@ def compare_models(
         summary.iloc[0]["wape"],
     )
 
-    return {
+    result: Dict[str, Any] = {
         "metrics_table": metrics_table,
         "summary": summary,
         "best_model_name": best_model_name,
         "predictions": predictions,
         "ml_model": ml_model,
         "cutoff": cutoff,
+        "n_series": int(cleaned_df["series_id"].nunique()),
+        "holdout_covariate_protocol": HOLDOUT_ML_COVARIATE_PROTOCOL,
+        "optimistic_eval": HOLDOUT_ML_OPTIMISTIC_EVAL,
     }
+    result["baseline_comparison"] = log_baseline_comparison(
+        result, config, quick=quick
+    )
+    return result
 
 
 def save_metrics(result: Dict[str, Any], config: Dict[str, Any]) -> None:
