@@ -194,14 +194,16 @@ def holdout_forecasts(config: Dict[str, Any], sku_id: str) -> Dict[str, Any]:
     wape_val = wape(actual_arr, forecast_arr)
     mae_val = mae(actual_arr, forecast_arr)
 
+    # Snapshot is the last holdout actuals date — the boundary before the forward horizon.
+    snapshot = dates[-1] if dates else None
     return {
         "meta": {
             "recipe": "holdout-forecasts",
             "source": str(Path(config["paths"]["holdout_predictions_csv"]).resolve()),
             "skuId": str(sku_id),
-            "snapshotDate": dates[-1] if dates else None,
+            "snapshotDate": snapshot,
             "holdoutStart": dates[0] if dates else None,
-            "holdoutEnd": dates[-1] if dates else None,
+            "holdoutEnd": snapshot,
             "horizonDays": len(dates),
             "department": str(meta_row.get("department", "")),
             "class": str(meta_row.get("class", "")),

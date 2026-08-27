@@ -76,11 +76,19 @@ def holdout_forecasts(sku_id: str = Query(..., min_length=1)) -> Dict[str, Any]:
     try:
         return aggregations.holdout_forecasts(get_config(), sku_id)
     except FileNotFoundError as exc:
-        raise _dataset_error(exc) from exc
-    except KeyError as exc:
         raise HTTPException(
             status_code=404,
-            detail={"message": str(exc), "error": str(exc)},
+            detail={
+                "message": "Holdout predictions file is missing",
+                "hint": "cd retail_forecasting_optimization && ./.venv/bin/python main.py --quick",
+                "error": str(exc),
+            },
+        ) from exc
+    except KeyError as exc:
+        message = exc.args[0] if exc.args else str(exc)
+        raise HTTPException(
+            status_code=404,
+            detail={"message": message, "error": str(exc)},
         ) from exc
 
 

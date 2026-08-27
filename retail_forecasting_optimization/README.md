@@ -93,7 +93,7 @@ Open http://localhost:5173. Vite proxies `/api` to the API on port 8000.
 |------|---------|
 | Overview | KPIs, risk distribution, actions by department |
 | Recommendations | Filterable decision table with explanations |
-| Forecasts | SKU selector + forward demand curves |
+| Forecasts | SKU selector, forward curves, and holdout actual vs predicted overlay |
 | Accuracy | WAPE by department for the best model |
 
 Production build: `cd frontend && npm run build` (output in `frontend/dist/`).

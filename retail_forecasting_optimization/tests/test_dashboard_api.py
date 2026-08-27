@@ -110,6 +110,25 @@ def test_holdout_forecasts_aggregation(holdout_csv, config):
     assert "wape" in result["metrics"]
     assert result["meta"]["snapshotDate"] == "2025-12-02"
     assert result["meta"]["holdoutStart"] == "2025-12-01"
+    assert result["metrics"]["mae"] == 0.5
+    assert result["metrics"]["wape"] == 0.037037
+
+
+def test_holdout_forecasts_api_success(holdout_csv, config, monkeypatch):
+    cfg = dict(config)
+    cfg["paths"] = dict(config["paths"])
+    cfg["paths"]["holdout_predictions_csv"] = str(holdout_csv)
+    monkeypatch.setattr("src.dashboard_api._config", cfg)
+
+    r = client.get("/api/holdout-forecasts?sku_id=SKU9001")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["meta"]["skuId"] == "SKU9001"
+    assert body["dates"] == ["2025-12-01", "2025-12-02"]
+    assert body["actuals"] == [15.0, 12.0]
+    assert body["predictions"] == [15.0, 11.0]
+    assert body["metrics"]["mae"] == 0.5
+    assert body["metrics"]["wape"] == 0.037037
 
 
 def test_holdout_forecasts_unknown_sku(holdout_csv, config, monkeypatch):
@@ -120,6 +139,9 @@ def test_holdout_forecasts_unknown_sku(holdout_csv, config, monkeypatch):
 
     r = client.get("/api/holdout-forecasts?sku_id=UNKNOWN-SKU")
     assert r.status_code == 404
+    detail = r.json()["detail"]
+    assert "UNKNOWN-SKU" in detail["message"]
+    assert "not found in holdout predictions" in detail["message"]
 
 
 def test_holdout_forecasts_missing_file(config, tmp_path, monkeypatch):
@@ -132,7 +154,7 @@ def test_holdout_forecasts_missing_file(config, tmp_path, monkeypatch):
     r = client.get("/api/holdout-forecasts?sku_id=SKU9001")
     assert r.status_code == 404
     detail = r.json()["detail"]
-    assert detail["message"] == "Pipeline outputs not found. Run the pipeline first."
+    assert detail["message"] == "Holdout predictions file is missing"
 
 
 def test_holdout_forecasts_api(has_outputs: bool):
