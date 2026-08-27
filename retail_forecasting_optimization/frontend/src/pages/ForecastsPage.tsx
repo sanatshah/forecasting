@@ -25,6 +25,13 @@ const VIEW_MODES: { id: ForecastViewMode; label: string }[] = [
   { id: "combined", label: "Combined" },
 ];
 
+const SNAPSHOT_LINE_LABEL = {
+  value: "Snapshot",
+  position: "insideTopRight" as const,
+  fill: "#5c5c5c",
+  fontSize: 11,
+};
+
 function formatDateLabel(date: string) {
   return date.slice(5);
 }
@@ -54,19 +61,29 @@ export function ForecastsPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedSku) return;
+    if (!selectedSku) {
+      setHoldout(null);
+      setHoldoutUnavailable(null);
+      return;
+    }
 
+    // Drop prior SKU holdout immediately so charts/KPIs cannot mix identities.
     setUserSetMode(false);
     setHoldout(null);
     setHoldoutUnavailable(null);
     setHoldoutLoading(true);
 
+    let cancelled = false;
+    const skuForRequest = selectedSku;
+
     api
-      .holdoutForecasts(selectedSku)
+      .holdoutForecasts(skuForRequest)
       .then((res) => {
+        if (cancelled || res.meta.skuId !== skuForRequest) return;
         setHoldout(res);
       })
       .catch((err: unknown) => {
+        if (cancelled) return;
         setHoldout(null);
         if (err instanceof ApiClientError && err.status === 404) {
           const detail =
@@ -80,7 +97,13 @@ export function ForecastsPage() {
         setHoldoutUnavailable("Failed to load holdout data");
         setViewMode("forward");
       })
-      .finally(() => setHoldoutLoading(false));
+      .finally(() => {
+        if (!cancelled) setHoldoutLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedSku]);
 
   useEffect(() => {
@@ -99,7 +122,10 @@ export function ForecastsPage() {
     [data, selectedSku],
   );
 
-  const holdoutAvailable = holdout != null && !holdoutUnavailable;
+  const holdoutAvailable =
+    holdout != null &&
+    !holdoutUnavailable &&
+    holdout.meta.skuId === selectedSku;
 
   const forwardChartData = useMemo(() => {
     if (!data || !sku) return [];
@@ -284,13 +310,15 @@ export function ForecastsPage() {
           </ResponsiveContainer>
         )}
 
-        {viewMode === "holdout" && holdout && (
+        {viewMode !== "forward" && holdoutLoading && <LoadingState />}
+
+        {viewMode === "holdout" && holdoutAvailable && !holdoutLoading && (
           <ResponsiveContainer width="100%" height={360}>
             <LineChart data={holdoutChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e8e8e8" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="fullDate" tick={{ fontSize: 11 }} tickFormatter={formatDateLabel} />
               <YAxis />
-              <Tooltip />
+              <Tooltip labelFormatter={formatDateLabel} />
               <Legend />
               <Line
                 type="monotone"
@@ -311,25 +339,23 @@ export function ForecastsPage() {
           </ResponsiveContainer>
         )}
 
-        {viewMode === "combined" && holdout && combinedChartData.points.length > 0 && (
+        {viewMode === "combined" &&
+          holdoutAvailable &&
+          !holdoutLoading &&
+          combinedChartData.points.length > 0 && (
           <ResponsiveContainer width="100%" height={360}>
             <LineChart data={combinedChartData.points}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e8e8e8" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="fullDate" tick={{ fontSize: 11 }} tickFormatter={formatDateLabel} />
               <YAxis />
-              <Tooltip />
+              <Tooltip labelFormatter={formatDateLabel} />
               <Legend />
               {combinedChartData.snapshotDate && (
                 <ReferenceLine
-                  x={formatDateLabel(combinedChartData.snapshotDate)}
+                  x={combinedChartData.snapshotDate}
                   stroke="#9a9a9a"
                   strokeDasharray="6 4"
-                  label={{
-                    value: "Snapshot",
-                    position: "insideTopRight",
-                    fill: "#5c5c5c",
-                    fontSize: 11,
-                  }}
+                  label={SNAPSHOT_LINE_LABEL}
                 />
               )}
               <Line

@@ -106,10 +106,28 @@ def test_holdout_forecasts_aggregation(holdout_csv, config):
     assert result["dates"] == ["2025-12-01", "2025-12-02"]
     assert result["actuals"] == [15.0, 12.0]
     assert result["predictions"] == [15.0, 11.0]
-    assert "mae" in result["metrics"]
-    assert "wape" in result["metrics"]
+    assert result["metrics"]["mae"] == 0.5
+    assert result["metrics"]["wape"] == round(1.0 / 27.0, 6)
     assert result["meta"]["snapshotDate"] == "2025-12-02"
     assert result["meta"]["holdoutStart"] == "2025-12-01"
+    assert result["meta"]["holdoutEnd"] == "2025-12-02"
+
+
+def test_holdout_forecasts_api_success(holdout_csv, config, monkeypatch):
+    cfg = dict(config)
+    cfg["paths"] = dict(config["paths"])
+    cfg["paths"]["holdout_predictions_csv"] = str(holdout_csv)
+    monkeypatch.setattr("src.dashboard_api._config", cfg)
+
+    r = client.get("/api/holdout-forecasts?sku_id=SKU9001")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["meta"]["skuId"] == "SKU9001"
+    assert body["dates"] == ["2025-12-01", "2025-12-02"]
+    assert body["actuals"] == [15.0, 12.0]
+    assert body["predictions"] == [15.0, 11.0]
+    assert body["metrics"]["mae"] == 0.5
+    assert body["metrics"]["wape"] == round(1.0 / 27.0, 6)
 
 
 def test_holdout_forecasts_unknown_sku(holdout_csv, config, monkeypatch):
