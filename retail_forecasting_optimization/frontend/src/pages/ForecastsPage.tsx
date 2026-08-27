@@ -25,8 +25,25 @@ const VIEW_MODES: { id: ForecastViewMode; label: string }[] = [
   { id: "combined", label: "Combined" },
 ];
 
+const SNAPSHOT_LINE_LABEL = {
+  value: "Snapshot",
+  position: "insideTopRight" as const,
+  fill: "#5c5c5c",
+  fontSize: 11,
+};
+
 function formatDateLabel(date: string) {
   return date.slice(5);
+}
+
+function holdoutErrorMessage(err: unknown): string {
+  if (err instanceof ApiClientError && err.status === 404) {
+    if (typeof err.detail === "object") {
+      return err.detail.message ?? "Holdout data unavailable";
+    }
+    return String(err.detail);
+  }
+  return "Failed to load holdout data";
 }
 
 export function ForecastsPage() {
@@ -56,7 +73,7 @@ export function ForecastsPage() {
   useEffect(() => {
     if (!selectedSku) return;
 
-    setUserSetMode(false);
+    let cancelled = false;
     setHoldout(null);
     setHoldoutUnavailable(null);
     setHoldoutLoading(true);
@@ -64,23 +81,22 @@ export function ForecastsPage() {
     api
       .holdoutForecasts(selectedSku)
       .then((res) => {
+        if (cancelled) return;
         setHoldout(res);
       })
       .catch((err: unknown) => {
+        if (cancelled) return;
         setHoldout(null);
-        if (err instanceof ApiClientError && err.status === 404) {
-          const detail =
-            typeof err.detail === "object"
-              ? (err.detail.message ?? "Holdout data unavailable")
-              : String(err.detail);
-          setHoldoutUnavailable(detail);
-          setViewMode("forward");
-          return;
-        }
-        setHoldoutUnavailable("Failed to load holdout data");
+        setHoldoutUnavailable(holdoutErrorMessage(err));
         setViewMode("forward");
       })
-      .finally(() => setHoldoutLoading(false));
+      .finally(() => {
+        if (!cancelled) setHoldoutLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedSku]);
 
   useEffect(() => {
@@ -100,6 +116,9 @@ export function ForecastsPage() {
   );
 
   const holdoutAvailable = holdout != null && !holdoutUnavailable;
+  const holdoutReady = holdoutAvailable && !holdoutLoading;
+  const effectiveMode: ForecastViewMode =
+    viewMode !== "forward" && !holdoutReady ? "forward" : viewMode;
 
   const forwardChartData = useMemo(() => {
     if (!data || !sku) return [];
@@ -131,13 +150,14 @@ export function ForecastsPage() {
       return { points: [] as Record<string, string | number | null>[], snapshotDate: null as string | null };
     }
 
-    const points: Record<string, string | number | null>[] = [];
+    const byDate = new Map<string, Record<string, string | number | null>>();
     const snapshotDate = holdout.meta.snapshotDate;
 
     for (let i = 0; i < holdout.dates.length; i++) {
-      points.push({
-        date: formatDateLabel(holdout.dates[i]),
-        fullDate: holdout.dates[i],
+      const fullDate = holdout.dates[i];
+      byDate.set(fullDate, {
+        date: formatDateLabel(fullDate),
+        fullDate,
         Actual: holdout.actuals[i] ?? 0,
         "Holdout Predicted": holdout.predictions[i] ?? 0,
         "Forward Forecast": null,
@@ -145,16 +165,24 @@ export function ForecastsPage() {
     }
 
     for (let i = 0; i < data.dates.length; i++) {
-      points.push({
-        date: formatDateLabel(data.dates[i]),
-        fullDate: data.dates[i],
-        Actual: null,
-        "Holdout Predicted": null,
-        "Forward Forecast": sku.aggregate[i] ?? 0,
-      });
+      const fullDate = data.dates[i];
+      const existing = byDate.get(fullDate);
+      if (existing) {
+        existing["Forward Forecast"] = sku.aggregate[i] ?? 0;
+      } else {
+        byDate.set(fullDate, {
+          date: formatDateLabel(fullDate),
+          fullDate,
+          Actual: null,
+          "Holdout Predicted": null,
+          "Forward Forecast": sku.aggregate[i] ?? 0,
+        });
+      }
     }
 
-    points.sort((a, b) => String(a.fullDate).localeCompare(String(b.fullDate)));
+    const points = [...byDate.values()].sort((a, b) =>
+      String(a.fullDate).localeCompare(String(b.fullDate)),
+    );
 
     return { points, snapshotDate };
   }, [data, sku, holdout]);
@@ -177,9 +205,9 @@ export function ForecastsPage() {
     holdout?.metrics.wape != null ? `${(holdout.metrics.wape * 100).toFixed(1)}%` : "—";
 
   const subtitle =
-    viewMode === "holdout" && holdout
+    effectiveMode === "holdout" && holdout
       ? `Holdout evaluation — ${holdout.meta.holdoutStart} to ${holdout.meta.holdoutEnd} (snapshot ${snapshotLabel})`
-      : viewMode === "combined" && holdout
+      : effectiveMode === "combined" && holdout
         ? `Actual vs predicted holdout + forward horizon (snapshot ${snapshotLabel})`
         : `Forward demand curves — ${data.meta.horizonDays}-day horizon (${data.meta.forecastStart} to ${data.meta.forecastEnd})`;
 
@@ -237,8 +265,11 @@ export function ForecastsPage() {
       <div className="kpi-grid">
         <KpiCard label="Total Units" value={sku.totalUnits.toLocaleString()} />
         <KpiCard label="Avg Daily" value={sku.avgDaily} unit="units" />
-        {holdoutAvailable && (
-          <KpiCard label="Holdout WAPE" value={holdoutWape} />
+        {(holdoutAvailable || holdoutLoading) && (
+          <KpiCard
+            label="Holdout WAPE"
+            value={holdoutLoading && !holdoutAvailable ? "…" : holdoutWape}
+          />
         )}
         <KpiCard label="Department" value={sku.department} />
         <KpiCard label="Lifecycle" value={sku.lifecycle || "—"} />
@@ -247,14 +278,14 @@ export function ForecastsPage() {
       <Panel
         title={`Forecast: ${sku.skuId}`}
         caption={
-          viewMode === "forward"
+          effectiveMode === "forward"
             ? `${sku.class} / ${sku.subclass} — top location/channel series`
-            : viewMode === "holdout"
+            : effectiveMode === "holdout"
               ? `${sku.class} / ${sku.subclass} — holdout actual vs predicted`
               : `${sku.class} / ${sku.subclass} — holdout actuals and forward forecast`
         }
       >
-        {viewMode === "forward" && (
+        {effectiveMode === "forward" && (
           <ResponsiveContainer width="100%" height={360}>
             <LineChart data={forwardChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e8e8e8" />
@@ -284,7 +315,7 @@ export function ForecastsPage() {
           </ResponsiveContainer>
         )}
 
-        {viewMode === "holdout" && holdout && (
+        {effectiveMode === "holdout" && holdout && (
           <ResponsiveContainer width="100%" height={360}>
             <LineChart data={holdoutChartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e8e8e8" />
@@ -311,25 +342,20 @@ export function ForecastsPage() {
           </ResponsiveContainer>
         )}
 
-        {viewMode === "combined" && holdout && combinedChartData.points.length > 0 && (
+        {effectiveMode === "combined" && holdout && combinedChartData.points.length > 0 && (
           <ResponsiveContainer width="100%" height={360}>
             <LineChart data={combinedChartData.points}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e8e8e8" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="fullDate" tickFormatter={formatDateLabel} tick={{ fontSize: 11 }} />
               <YAxis />
               <Tooltip />
               <Legend />
               {combinedChartData.snapshotDate && (
                 <ReferenceLine
-                  x={formatDateLabel(combinedChartData.snapshotDate)}
+                  x={combinedChartData.snapshotDate}
                   stroke="#9a9a9a"
                   strokeDasharray="6 4"
-                  label={{
-                    value: "Snapshot",
-                    position: "insideTopRight",
-                    fill: "#5c5c5c",
-                    fontSize: 11,
-                  }}
+                  label={SNAPSHOT_LINE_LABEL}
                 />
               )}
               <Line
