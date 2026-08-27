@@ -24,6 +24,7 @@ from src.forecasting_pipeline import (
     generate_forecasts,
     horizon_rollups,
 )
+from src.eval_baseline import print_baseline_comparison
 from src.model_selection import compare_models, save_metrics
 from src.optimization_engine import generate_recommendations, save_recommendations
 from src.utils import ensure_dir, get_logger, load_config, resolve_path, set_global_seed
@@ -79,7 +80,7 @@ def run_pipeline(config: Dict[str, Any], quick: bool = False) -> Dict[str, Any]:
     features = build_features(cleaned, config)
 
     # 4-5. Train models & select best --------------------------------------
-    comparison = compare_models(cleaned, features, config)
+    comparison = compare_models(cleaned, features, config, quick=quick)
     save_metrics(comparison, config)
 
     # 6. Forward forecasts --------------------------------------------------
@@ -107,6 +108,7 @@ def run_pipeline(config: Dict[str, Any], quick: bool = False) -> Dict[str, Any]:
     return {
         "cleaned": cleaned,
         "quality": quality,
+        "quick": quick,
         "comparison": comparison,
         "daily_forecast": daily_forecast,
         "rollups": rollups,
@@ -160,6 +162,8 @@ def print_executive_summary(config: Dict[str, Any], artifacts: Dict[str, Any]) -
     print("\nModel leaderboard (WAPE):")
     for _, r in summary.iterrows():
         print(f"  - {r['model']:<26} WAPE={r['wape']:.4f}  MAE={r['mae']:.2f}  bias={r['bias']:.2f}")
+    print()
+    print_baseline_comparison(comparison, config, quick=artifacts.get("quick", False))
     print("\nTop departments by forecast error (WAPE):")
     if top_depts.empty:
         print("  - n/a")
