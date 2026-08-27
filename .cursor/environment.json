@@ -12,5 +12,14 @@
       "command": "cd retail_forecasting_optimization/frontend && npm run dev -- --host 127.0.0.1"
     }
   ],
-  "ports": [5173, 8000]
+  "ports": [
+    {
+      "name": "dashboard-ui",
+      "port": 5173
+    },
+    {
+      "name": "dashboard-api",
+      "port": 8000
+    }
+  ]
 }
