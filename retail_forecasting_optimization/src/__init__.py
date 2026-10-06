@@ -1,18 +1,18 @@
-"""Retail demand forecasting and optimization package.
+"""Peacock subscriber forecasting and scenario package.
 
 Modules:
     utils                 - config loading, logging, small shared helpers
-    data_loader           - typed CSV ingestion
+    data_loader           - typed CSV ingestion (history + content calendar)
     data_validation       - schema/quality checks and cleaning
-    feature_engineering   - retail time-series feature builder
+    feature_engineering   - subscriber time-series feature builder
     model_baseline        - naive + statistical baselines (incl. SARIMAX)
     model_ml              - global gradient-boosting model + advanced interface
-    evaluation            - retail forecast accuracy metrics and slicing
-    model_selection       - compare models and pick the best by WAPE
-    forecasting_pipeline  - orchestrates training + forward forecasting
-    optimization_engine   - inventory/markdown recommendations from forecasts
+    evaluation            - forecast accuracy metrics and slicing
+    model_selection       - compare models and pick the best by WAPE, per target
+    forecasting_pipeline  - forward forecasts per target and derived subscriber KPIs
+    scenario_engine       - risk flags, price-change scenarios and Growth OKR rollup
     visualization         - plots
     explainability        - feature importance + plain-English explanations
 """
 
-__version__ = "1.0.0"
+__version__ = "2.0.0"

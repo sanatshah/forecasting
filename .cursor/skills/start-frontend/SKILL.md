@@ -1,13 +1,13 @@
 ---
 name: start-frontend
-description: Starts the Macy's-themed React dashboard (Vite) and its FastAPI backend for the retail forecasting pipeline. Use when the user asks to start the frontend, run the dashboard UI, open the web app, or npm run dev for the forecast dashboard.
+description: Starts the Peacock-themed React dashboard (Vite) and its FastAPI backend for the subscriber forecasting pipeline. Use when the user asks to start the frontend, run the dashboard UI, open the web app, or npm run dev for the forecast dashboard.
 ---
 
 # Start Frontend Dashboard
 
 ## Scope
 
-Macy's-themed React dashboard under `retail_forecasting_optimization/frontend/`.
+Peacock-themed React dashboard under `retail_forecasting_optimization/frontend/` (pages: Overview / Growth OKRs, Segments, Scenarios, Accuracy).
 
 - **UI**: Vite + React on http://localhost:5173
 - **API**: FastAPI (`src.dashboard_api`) on http://127.0.0.1:8000
@@ -16,7 +16,7 @@ Macy's-themed React dashboard under `retail_forecasting_optimization/frontend/`.
 
 ## Prerequisites
 
-1. **Pipeline outputs**: `retail_forecasting_optimization/outputs/*.csv` must exist (API reads them). If missing, run the **run-pipeline** skill first (`python main.py` or `--quick`).
+1. **Pipeline outputs**: `retail_forecasting_optimization/outputs/*.csv` (including `okr_summary.csv`) must exist (API reads them). If missing, run the **run-pipeline** skill first (`python main.py` or `--quick`).
 2. **Working directory for API**: `retail_forecasting_optimization/`
 3. **Working directory for UI**: `retail_forecasting_optimization/frontend/`
 4. **Node**: Node.js + npm available

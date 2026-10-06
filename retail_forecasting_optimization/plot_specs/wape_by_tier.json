@@ -1,0 +1,22 @@
+{
+  "dataset": "metrics",
+  "transform": {
+    "filters": [
+      {"col": "level", "op": "eq", "value": "tier"}
+    ],
+    "pivot": {
+      "index": "group",
+      "columns": "target",
+      "values": "wape",
+      "aggfunc": "min"
+    }
+  },
+  "chart": {
+    "kind": "heatmap"
+  },
+  "style": {
+    "title": "Best WAPE by Tier and Target (lower is better)",
+    "figsize": [9, 4]
+  },
+  "output": "wape_by_tier.png"
+}

@@ -1,0 +1,26 @@
+{
+  "dataset": "metrics",
+  "transform": {
+    "filters": [
+      {"col": "level", "op": "eq", "value": "series_id"},
+      {"col": "target", "op": "eq", "value": "churned_subs"}
+    ],
+    "groupby": {
+      "by": ["group"],
+      "agg": {"mae": "min"}
+    },
+    "sort": {"by": "mae", "ascending": true}
+  },
+  "chart": {
+    "kind": "barh",
+    "x": "group",
+    "y": "mae"
+  },
+  "style": {
+    "title": "Churn Forecast Error (best-model MAE) by Segment",
+    "xlabel": "MAE (subscribers/day)",
+    "figsize": [9, 6],
+    "legend": false
+  },
+  "output": "error_by_segment.png"
+}

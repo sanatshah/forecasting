@@ -15,9 +15,19 @@ import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from .utils import get_logger
+from .utils import get_logger, get_targets
 
 logger = get_logger(__name__)
+
+# Subscriber counts and usage can never be negative.
+NON_NEGATIVE_COLUMNS = [
+    "gross_adds",
+    "churned_subs",
+    "paid_subs_bod",
+    "paid_subs_eod",
+    "hours_watched",
+    "daily_active_subs",
+]
 
 
 class DataQualityIssue(BaseModel):
@@ -98,10 +108,10 @@ def _check_dates(
 def _check_duplicates(
     df: pd.DataFrame, grain: List[str], issues: List[DataQualityIssue]
 ) -> pd.DataFrame:
-    """Detect and drop duplicate rows at the date + series grain.
+    """Detect and drop duplicate rows at the date + segment grain.
 
-    Duplicates at the demand grain would double-count sales, so we keep the
-    last occurrence and record how many were removed.
+    Duplicates would double-count adds and churn, so we keep the last
+    occurrence and record how many were removed.
     """
     grain = [c for c in grain if c in df.columns]
     if not grain:
@@ -125,14 +135,14 @@ def _check_duplicates(
 def _check_missing_values(
     df: pd.DataFrame,
     nullable: List[str],
-    target_col: str,
+    targets: List[str],
     issues: List[DataQualityIssue],
 ) -> pd.DataFrame:
     """Report and impute missing values.
 
-    - Missing target (``units_sold``) rows are dropped (can't train on them).
-    - Missing numeric covariates are filled with 0 (a safe retail default for
-      counts/flags) except prices, which are forward/back filled within series.
+    - Rows missing any forecast target are dropped (can't train on them).
+    - Missing numeric covariates are filled with 0 and categoricals with
+      ``"Unknown"``.
     - Columns declared nullable in config are ignored.
     """
     for col in df.columns:
@@ -141,13 +151,13 @@ def _check_missing_values(
         n_missing = int(df[col].isna().sum())
         if n_missing == 0:
             continue
-        if col == target_col:
+        if col in targets:
             issues.append(
                 DataQualityIssue(
                     check="missing_target",
                     severity="error",
                     count=n_missing,
-                    detail=f"{n_missing} rows missing target '{target_col}'.",
+                    detail=f"{n_missing} rows missing target '{col}'.",
                     action="Dropped rows with missing target.",
                 )
             )
@@ -174,30 +184,30 @@ def _check_value_ranges(
     val_cfg: Dict[str, Any],
     issues: List[DataQualityIssue],
 ) -> pd.DataFrame:
-    """Detect impossible values: negative units/prices, bad markdowns, etc.
+    """Detect impossible values: negative counts/prices, bad discounts, etc.
 
-    Negative units and prices are clipped to 0; markdown percentages are
-    clipped into ``[0, max_markdown_pct]``; ``selling_price > regular_price``
-    is reported (and clamped unless explicitly allowed in config).
+    Negative counts and prices are clipped; discounts are clipped into
+    ``[0, max_discount_pct]``; ``effective_price > list_price`` is reported (and
+    clamped unless explicitly allowed in config).
     """
-    # Negative units.
-    if "units_sold" in df.columns:
-        neg = df["units_sold"] < 0
+    for col in NON_NEGATIVE_COLUMNS:
+        if col not in df.columns:
+            continue
+        neg = df[col] < 0
         n = int(neg.sum())
         if n:
             issues.append(
                 DataQualityIssue(
-                    check="negative_units",
+                    check=f"negative_{col}",
                     severity="warning",
                     count=n,
-                    detail=f"{n} rows with negative units_sold.",
+                    detail=f"{n} rows with negative {col}.",
                     action="Clipped to 0.",
                 )
             )
-            df.loc[neg, "units_sold"] = 0
+            df.loc[neg, col] = 0
 
-    # Negative prices.
-    for price_col in ["regular_price", "selling_price"]:
+    for price_col in ["list_price", "effective_price"]:
         if price_col in df.columns:
             neg = df[price_col] < val_cfg["min_price"]
             n = int(neg.sum())
@@ -213,88 +223,67 @@ def _check_value_ranges(
                 )
                 df.loc[neg, price_col] = val_cfg["min_price"]
 
-    # Impossible markdown percentages.
-    if "markdown_pct" in df.columns:
-        max_md = val_cfg["max_markdown_pct"]
-        bad = (df["markdown_pct"] < 0) | (df["markdown_pct"] > max_md)
+    if "discount_pct" in df.columns:
+        max_d = val_cfg["max_discount_pct"]
+        bad = (df["discount_pct"] < 0) | (df["discount_pct"] > max_d)
         n = int(bad.sum())
         if n:
             issues.append(
                 DataQualityIssue(
-                    check="impossible_markdown",
+                    check="impossible_discount",
                     severity="warning",
                     count=n,
-                    detail=f"{n} rows with markdown_pct outside [0, {max_md}].",
+                    detail=f"{n} rows with discount_pct outside [0, {max_d}].",
                     action="Clipped into valid range.",
                 )
             )
-            df["markdown_pct"] = df["markdown_pct"].clip(0, max_md)
+            df["discount_pct"] = df["discount_pct"].clip(0, max_d)
 
-    # selling_price > regular_price.
-    if {"selling_price", "regular_price"}.issubset(df.columns):
-        bad = df["selling_price"] > df["regular_price"]
+    if {"effective_price", "list_price"}.issubset(df.columns):
+        bad = df["effective_price"] > df["list_price"]
         n = int(bad.sum())
         if n:
-            action = (
-                "Left as-is (allowed by config)."
-                if val_cfg.get("allow_selling_above_regular")
-                else "Clamped selling_price to regular_price."
-            )
+            allowed = val_cfg.get("allow_effective_above_list")
             issues.append(
                 DataQualityIssue(
-                    check="selling_above_regular",
+                    check="effective_above_list",
                     severity="warning",
                     count=n,
-                    detail=f"{n} rows where selling_price > regular_price.",
-                    action=action,
+                    detail=f"{n} rows where effective_price > list_price.",
+                    action="Left as-is (allowed by config)."
+                    if allowed
+                    else "Clamped effective_price to list_price.",
                 )
             )
-            if not val_cfg.get("allow_selling_above_regular"):
-                df.loc[bad, "selling_price"] = df.loc[bad, "regular_price"]
+            if not allowed:
+                df.loc[bad, "effective_price"] = df.loc[bad, "list_price"]
 
     return df
 
 
-def _detect_stockouts(
-    df: pd.DataFrame, val_cfg: Dict[str, Any], issues: List[DataQualityIssue]
-) -> pd.DataFrame:
-    """Ensure a ``stockout_flag`` exists and reconcile with inventory.
+def _check_base_identity(df: pd.DataFrame, issues: List[DataQualityIssue]) -> None:
+    """Report rows where ``eod != bod + gross_adds - churned_subs``.
 
-    If the flag is absent we derive it from ``inventory_on_hand`` <= threshold.
-    We also add ``derived_stockout_flag`` combining the source flag with the
-    inventory signal, which feature engineering and optimization consume.
+    A broken ledger usually means late-arriving churn or a billing restatement.
+    We report it rather than rewrite either side, since the targets are
+    forecast independently and the base is only used as a covariate.
     """
-    thr = val_cfg["stockout_inventory_threshold"]
-    has_inv = "inventory_on_hand" in df.columns
-    if "stockout_flag" not in df.columns and has_inv:
-        df["stockout_flag"] = (df["inventory_on_hand"] <= thr).astype(int)
+    cols = {"paid_subs_bod", "paid_subs_eod", "gross_adds", "churned_subs"}
+    if not cols.issubset(df.columns):
+        return
+    expected = df["paid_subs_bod"] + df["gross_adds"] - df["churned_subs"]
+    bad = (expected - df["paid_subs_eod"]).abs() > 0.5
+    n = int(bad.sum())
+    if n:
         issues.append(
             DataQualityIssue(
-                check="stockout_flag_missing",
-                severity="info",
-                count=int(df["stockout_flag"].sum()),
-                detail="stockout_flag was absent; derived from inventory.",
-                action="Created stockout_flag from inventory_on_hand.",
-            )
-        )
-
-    if has_inv:
-        inv_stockout = (df["inventory_on_hand"] <= thr).astype(int)
-        source_flag = df.get("stockout_flag", pd.Series(0, index=df.index)).fillna(0)
-        df["derived_stockout_flag"] = ((source_flag == 1) | (inv_stockout == 1)).astype(int)
-        n = int(df["derived_stockout_flag"].sum())
-        issues.append(
-            DataQualityIssue(
-                check="stockout_periods",
-                severity="info",
+                check="base_identity",
+                severity="warning",
                 count=n,
-                detail=f"{n} row-days identified as stockout periods.",
-                action="Recorded derived_stockout_flag for downstream use.",
+                detail=f"{n} rows where paid_subs_eod != paid_subs_bod + gross_adds - churned_subs.",
+                action="Reported only; base is used as a covariate.",
             )
         )
-    else:
-        df["derived_stockout_flag"] = df.get("stockout_flag", 0)
-    return df
 
 
 def validate_and_clean(
@@ -314,15 +303,12 @@ def validate_and_clean(
     _check_required_columns(df, data_cfg["required_columns"], issues)
     df = _check_dates(df, data_cfg["date_col"], issues)
     df = _check_duplicates(df, data_cfg["series_keys"] + [data_cfg["date_col"]], issues)
-    df = _check_missing_values(
-        df, data_cfg["nullable_columns"], data_cfg["target_col"], issues
-    )
+    df = _check_missing_values(df, data_cfg["nullable_columns"], get_targets(config), issues)
     df = _check_value_ranges(df, val_cfg, issues)
-    df = _detect_stockouts(df, val_cfg, issues)
+    _check_base_identity(df, issues)
 
     n_out = len(df)
 
-    # Overall pass/fail: fail only if we lost all data or required cols missing.
     has_required = not any(
         i.check == "required_columns" and i.severity == "error" for i in issues
     )

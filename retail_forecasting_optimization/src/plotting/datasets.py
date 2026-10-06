@@ -38,24 +38,33 @@ DATASETS: Dict[str, DatasetDef] = {
     "forecasts": DatasetDef(
         name="forecasts",
         path_key="forecasts_csv",
-        description="Daily forward forecasts per series (sku/location/channel).",
+        description=(
+            "Daily forward forecasts per segment (tier/channel): gross adds, churn, "
+            "hours, plus derived net adds, paid subs and hours per paid sub."
+        ),
         date_columns=("date",),
     ),
     "recommendations": DatasetDef(
         name="recommendations",
         path_key="recommendations_csv",
-        description="Inventory / markdown recommendations with risk flags.",
-        date_columns=("date",),
+        description="Segment scenarios per horizon: risk flags, actions, price-change deltas.",
+        date_columns=("date", "forecast_start", "forecast_end"),
+    ),
+    "okr_summary": DatasetDef(
+        name="okr_summary",
+        path_key="okr_summary_csv",
+        description="Growth OKR rollup per horizon: high-value net adds, usage per paid sub, baseline vs price change.",
+        date_columns=("forecast_start", "forecast_end"),
     ),
     "metrics": DatasetDef(
         name="metrics",
         path_key="metrics_csv",
-        description="Per-model evaluation metrics by level (overall, department, channel).",
+        description="Per-model, per-target evaluation metrics by level (overall, tier, channel, segment).",
     ),
     "holdout_predictions": DatasetDef(
         name="holdout_predictions",
         path_key="holdout_predictions_csv",
-        description="Holdout-window actual vs forecast for the best model.",
+        description="Holdout-window actual vs forecast for the best model, per target.",
         date_columns=("date",),
     ),
     "cleaned": DatasetDef(

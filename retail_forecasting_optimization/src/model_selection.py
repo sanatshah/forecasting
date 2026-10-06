@@ -2,8 +2,8 @@
 
 Runs a time-based backtest: for each series the trailing ``holdout_days`` are
 held out. Baselines and the global ML model each forecast that window, and we
-score them with the retail metrics in :mod:`src.evaluation`. The model with the
-lowest overall WAPE is selected.
+score them with the metrics in :mod:`src.evaluation`. The model with the
+lowest overall WAPE is selected, independently for each forecast target.
 
 Leakage control
 ---------------
@@ -26,7 +26,7 @@ from .feature_engineering import build_features
 from .model_baseline import get_baseline_models
 from .model_chronos import ChronosForecaster
 from .model_ml import MLForecaster
-from .utils import get_logger, resolve_path
+from .utils import get_logger, get_targets, resolve_path
 
 logger = get_logger(__name__)
 
@@ -42,14 +42,10 @@ def _dimension_columns(df: pd.DataFrame) -> List[str]:
     return [
         c
         for c in [
-            "sku_id",
-            "product_id",
-            "location_id",
-            "channel",
-            "department",
-            "class",
-            "subclass",
-            "product_lifecycle_status",
+            "tier",
+            "acquisition_channel",
+            "distribution_partner",
+            "tentpole_flag",
             "promo_flag",
         ]
         if c in df.columns
@@ -105,10 +101,13 @@ def _ml_predictions(
     model.fit(train_feats)
     model.set_history(train_hist)
 
+    # Hide every target's holdout actuals (not just this one) so trailing
+    # rates built from sibling targets cannot peek into the holdout window.
+    hidden = [c for c in get_targets(config) + [target] if c in holdout.columns]
     dims = _dimension_columns(holdout)
     frames: List[pd.DataFrame] = []
     for sid, g in holdout.sort_values(date_col).groupby("series_id"):
-        future_df = g.drop(columns=[target])
+        future_df = g.drop(columns=list(dict.fromkeys(hidden)))
         preds = model.forecast_recursive(sid, future_df)
         frame = g[[date_col] + dims].copy()
         frame["series_id"] = sid
@@ -187,16 +186,22 @@ def compare_models(
     ml_pred, ml_model = _ml_predictions(cleaned_df, features_df, holdout, config)
     predictions[MLForecaster.name] = ml_pred
 
+    target = config["data"]["target_col"]
+    for pred in predictions.values():
+        pred["target"] = target
+
     # Per-model, per-slice metrics + overall summary.
     metric_frames: List[pd.DataFrame] = []
     summary_rows: List[Dict[str, Any]] = []
     for name, pred in predictions.items():
         ev = full_evaluation(pred)
         ev.insert(0, "model", name)
+        ev.insert(1, "target", target)
         metric_frames.append(ev)
         overall = ev[ev["level"] == "overall"].iloc[0]
         summary_rows.append(
             {
+                "target": target,
                 "model": name,
                 "wape": overall["wape"],
                 "mape": overall["mape"],
@@ -211,7 +216,8 @@ def compare_models(
     summary = pd.DataFrame(summary_rows).sort_values("wape").reset_index(drop=True)
     best_model_name = summary.iloc[0]["model"]
     logger.info(
-        "Best model by WAPE: %s (WAPE=%.4f)",
+        "Best model for %s by WAPE: %s (WAPE=%.4f)",
+        target,
         best_model_name,
         summary.iloc[0]["wape"],
     )
@@ -226,9 +232,9 @@ def compare_models(
     }
 
 
-def save_metrics(result: Dict[str, Any], config: Dict[str, Any]) -> None:
-    """Persist the full metric table to ``outputs/model_metrics.csv``."""
+def save_metrics(metrics_table: pd.DataFrame, config: Dict[str, Any]) -> None:
+    """Persist the full (all-target) metric table to ``outputs/model_metrics.csv``."""
     path = resolve_path(config["paths"]["metrics_csv"])
     path.parent.mkdir(parents=True, exist_ok=True)
-    result["metrics_table"].to_csv(path, index=False)
+    metrics_table.to_csv(path, index=False)
     logger.info("Saved model metrics to %s", path)

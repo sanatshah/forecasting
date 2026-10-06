@@ -4,45 +4,75 @@ export interface ApiError {
   error?: string;
 }
 
+export interface OkrRecord {
+  horizon: number;
+  scenario: "baseline" | "price_change" | string;
+  forecastStart: string | null;
+  forecastEnd: string | null;
+  highValueNetAdds: number;
+  highValuePaidSubsEnd: number;
+  highValueGrossAdds: number;
+  totalNetAdds: number;
+  totalPaidSubsEnd: number;
+  hoursPerPaidSubMonth: number;
+  highValueHoursPerPaidSubMonth: number;
+  revenue: number;
+}
+
 export interface SummaryResponse {
   meta: {
     snapshotDate: string;
-    recommendationCount: number;
+    horizon: number;
+    segmentCount: number;
   };
   bestModel: string;
   bestWape: number | null;
+  bestModels: Record<string, { model: string; wape: number }>;
+  okr: OkrRecord | null;
+  okrScenario: OkrRecord | null;
   riskCounts: Record<string, number>;
   actionCounts: Record<string, number>;
 }
 
+export interface PriceChange {
+  tier: string;
+  new_price: number;
+  effective_date: string;
+}
+
+export interface OkrResponse {
+  meta: {
+    highValueTiers: string[];
+    highValueChannels: string[];
+    priceChanges: PriceChange[];
+  };
+  rows: OkrRecord[];
+}
+
 export interface ActionBreakdownResponse {
-  meta: { snapshotDate: string; grandTotal: number };
-  departments: string[];
+  meta: { snapshotDate: string; horizon: number; grandTotal: number };
+  tiers: string[];
   actions: string[];
   breakdown: Record<string, Record<string, number>>;
   totals: Record<string, number>;
 }
 
-export interface SkuForecastSeries {
-  location: string;
+export interface SegmentForecast {
+  segmentId: string;
+  tier: string;
   channel: string;
-  data: number[];
-  total: number;
+  partner: string;
+  openingPaidSubs: number;
+  grossAdds: number[];
+  churnedSubs: number[];
+  netAdds: number[];
+  paidSubs: number[];
+  hoursPerPaidSub: number[];
+  totalNetAdds: number;
+  endingPaidSubs: number;
 }
 
-export interface SkuForecast {
-  skuId: string;
-  department: string;
-  class: string;
-  subclass: string;
-  lifecycle: string;
-  aggregate: number[];
-  totalUnits: number;
-  avgDaily: number;
-  series: SkuForecastSeries[];
-}
-
-export interface SkuForecastsResponse {
+export interface SegmentForecastsResponse {
   meta: {
     snapshotDate: string;
     horizonDays: number;
@@ -50,20 +80,21 @@ export interface SkuForecastsResponse {
     forecastEnd: string | null;
   };
   dates: string[];
-  skus: SkuForecast[];
+  segments: SegmentForecast[];
 }
+
+export type ForecastTarget = "gross_adds" | "churned_subs" | "hours_watched";
 
 export interface HoldoutForecastsResponse {
   meta: {
-    skuId: string;
+    segmentId: string;
+    target: string;
     snapshotDate: string | null;
     holdoutStart: string | null;
     holdoutEnd: string | null;
     horizonDays: number;
-    department: string;
-    class: string;
-    subclass: string;
-    lifecycle: string;
+    tier: string;
+    channel: string;
     source?: string;
   };
   dates: string[];
@@ -75,23 +106,34 @@ export interface HoldoutForecastsResponse {
   };
 }
 
-export type ForecastViewMode = "forward" | "holdout" | "combined";
+export type ForecastViewMode = "forward" | "holdout";
 
-export interface RecommendationRow {
+export interface ScenarioRow {
   date: string;
-  skuId: string;
-  locationId: string;
+  segmentId: string;
+  tier: string;
   channel: string;
-  department: string;
+  partner: string;
   forecastHorizon: number;
-  forecastUnits: number;
-  inventoryOnHand: number;
-  weeksOfSupply: number;
+  openingPaidSubs: number;
+  grossAdds: number;
+  churnedSubs: number;
+  netAdds: number;
+  endingPaidSubs: number;
+  hoursPerPaidSubMonth: number;
+  churnRate: number;
+  trailingChurnRate: number;
+  usageChangePct: number;
+  listPrice: number;
+  scenarioPrice: number;
+  scenarioNetAdds: number;
+  netAddsDelta: number;
+  baselineRevenue: number;
+  scenarioRevenue: number;
+  revenueDelta: number;
   riskFlag: string;
   recommendedAction: string;
-  recommendedMarkdownPct: number;
-  expectedSales: number;
-  expectedMargin: number;
+  priceDecision: string;
   objectiveScore: number;
   reasonCode: string;
   explanation: string;
@@ -100,19 +142,21 @@ export interface RecommendationRow {
 export interface RecommendationsResponse {
   meta: {
     snapshotDate: string;
+    horizon: number;
     totalMatching: number;
     returned: number;
   };
   filters: {
-    departments: string[];
+    tiers: string[];
     riskFlags: string[];
     actions: string[];
+    horizons: number[];
   };
-  rows: RecommendationRow[];
+  rows: ScenarioRow[];
 }
 
-export interface DepartmentMetric {
-  department: string;
+export interface SegmentMetric {
+  group: string;
   wape: number;
   mape: number;
   mae: number;
@@ -121,7 +165,8 @@ export interface DepartmentMetric {
   n: number;
 }
 
-export interface DepartmentMetricsResponse {
-  meta: { snapshotDate: string; model: string };
-  departments: DepartmentMetric[];
+export interface SegmentMetricsResponse {
+  meta: { snapshotDate: string; model: string; target: string; targets: string[] };
+  tiers: SegmentMetric[];
+  channels: SegmentMetric[];
 }

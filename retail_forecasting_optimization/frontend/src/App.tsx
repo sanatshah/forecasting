@@ -3,8 +3,8 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { api } from "./api/client";
 import { Layout } from "./components/Layout";
 import { OverviewPage } from "./pages/OverviewPage";
-import { RecommendationsPage } from "./pages/RecommendationsPage";
-import { ForecastsPage } from "./pages/ForecastsPage";
+import { ScenariosPage } from "./pages/ScenariosPage";
+import { SegmentsPage } from "./pages/SegmentsPage";
 import { AccuracyPage } from "./pages/AccuracyPage";
 
 export function App() {
@@ -22,8 +22,8 @@ export function App() {
       <Routes>
         <Route element={<Layout snapshotDate={snapshotDate} />}>
           <Route index element={<OverviewPage />} />
-          <Route path="recommendations" element={<RecommendationsPage />} />
-          <Route path="forecasts" element={<ForecastsPage />} />
+          <Route path="segments" element={<SegmentsPage />} />
+          <Route path="scenarios" element={<ScenariosPage />} />
           <Route path="accuracy" element={<AccuracyPage />} />
         </Route>
       </Routes>

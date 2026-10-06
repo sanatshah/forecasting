@@ -4,8 +4,9 @@ Two layers of explainability:
 
 1. **Model-level** - global feature importance from the fitted ML model, plus a
    short list of the strongest drivers.
-2. **Recommendation-level** - the optimization engine already writes a plain
-   English ``explanation`` per row; helpers here summarize those for reporting.
+2. **Recommendation-level** - the scenario engine already writes a plain
+   English ``explanation`` per segment; helpers here summarize those for
+   reporting.
 """
 from __future__ import annotations
 
@@ -62,11 +63,11 @@ def plot_feature_importance(
 
 
 def recommendation_narratives(recs: pd.DataFrame, top_n: int = 5) -> List[str]:
-    """Return the most material recommendation explanations (by margin impact)."""
+    """Return the most material segment explanations (by net-adds magnitude)."""
     if recs.empty or "explanation" not in recs.columns:
         return []
     ranked = recs.reindex(
-        recs["expected_margin"].abs().sort_values(ascending=False).index
+        recs["forecast_net_adds"].abs().sort_values(ascending=False).index
     )
     return ranked["explanation"].head(top_n).tolist()
 

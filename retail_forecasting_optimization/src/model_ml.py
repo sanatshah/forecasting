@@ -4,8 +4,8 @@ Why a *global* model?
 ---------------------
 Instead of fitting one model per series, we train a single gradient-boosting
 regressor across all series using engineered features plus categorical
-hierarchy columns. This shares statistical strength across similar SKUs /
-locations and scales to thousands of series - the intended production path.
+segment columns. This shares statistical strength across similar tiers /
+channels / partners and scales to many segments - the intended production path.
 
 Backend selection
 ------------------
@@ -18,7 +18,7 @@ Recursive forecasting
 ---------------------
 Multi-step forecasts are produced recursively: we predict day t+1, append it to
 history, rebuild lag/rolling features, then predict t+2, and so on. Future
-known covariates (price, promo, calendar) are supplied by the pipeline.
+known covariates (price, promo, content calendar) are supplied by the pipeline.
 """
 from __future__ import annotations
 
@@ -142,7 +142,7 @@ def _build_backend(config: Dict[str, Any]) -> _Backend:
 
 
 class MLForecaster:
-    """Global gradient-boosting forecaster over engineered retail features."""
+    """Global gradient-boosting forecaster over engineered subscriber features."""
 
     name = "ml_gradient_boosting"
 
@@ -225,27 +225,26 @@ class MLForecaster:
         ----------
         future_df:
             Rows for the horizon with known covariates (date, price, promo,
-            calendar, hierarchy, inventory) but no target. Must be sorted by
-            date.
+            content calendar, segment, subscriber base) but no target.
 
-        Returns predicted units for each future row.
+        Returns the predicted target for each future row.
         """
         if self._history_df is None:
             raise RuntimeError("Call set_history() before forecast_recursive().")
 
         hist = self._history_df[self._history_df["series_id"] == series_id].copy()
+        future_sorted = future_df.sort_values(self.date_col).reset_index(drop=True)
         preds: List[float] = []
 
-        for _, future_row in future_df.sort_values(self.date_col).iterrows():
-            # Append the next future row (target unknown) to the running history.
-            row = future_row.to_dict()
-            row[self.target] = np.nan
-            working = pd.concat(
-                [hist, pd.DataFrame([row])], ignore_index=True
-            )
+        for step, future_row in future_sorted.iterrows():
+            # Append all remaining future rows (target unknown) so calendar
+            # look-ahead features such as days_until_next_tentpole match training.
+            remaining = future_sorted.iloc[step:].copy()
+            remaining[self.target] = np.nan
+            working = pd.concat([hist, remaining], ignore_index=True)
             feat = build_features(working, self.config)
-            last = feat.iloc[[-1]]
-            yhat = float(self._predict_matrix(last)[0])
+            current = feat[feat[self.date_col] == future_row[self.date_col]]
+            yhat = float(self._predict_matrix(current.iloc[[0]])[0])
             preds.append(yhat)
 
             # Commit the prediction into history so subsequent lags see it.

@@ -1,6 +1,6 @@
 ---
 name: create-plot
-description: Create a new plot from a natural-language prompt using the declarative PlotSpec engine. Use when the user asks to plot, chart, visualize, or graph pipeline outputs (forecasts, recommendations, metrics, holdout predictions, cleaned data).
+description: Create a new plot from a natural-language prompt using the declarative PlotSpec engine. Use when the user asks to plot, chart, visualize, or graph pipeline outputs (forecasts, recommendations, OKR summary, metrics, holdout predictions, cleaned data).
 ---
 
 # Create a plot from a prompt
@@ -41,24 +41,24 @@ Use the project venv Python (see run-pipeline skill).
 {
   "dataset": "forecasts",
   "transform": {
-    "filters": [{"col": "department", "op": "eq", "value": "Home"}],
-    "top_groups": {"by": "series_id", "value": "forecast_units", "n": 5, "agg": "sum"},
-    "groupby": {"by": ["date"], "agg": {"forecast_units": "sum"}},
-    "pivot": {"index": "department", "columns": "risk_flag", "values": "forecast_units", "aggfunc": "count"},
-    "melt": {"id_vars": ["date"], "value_vars": ["actual", "forecast"], "var_name": "metric", "value_name": "units"},
-    "sort": {"by": "forecast_units", "ascending": false},
+    "filters": [{"col": "tier", "op": "eq", "value": "Premium"}],
+    "top_groups": {"by": "series_id", "value": "forecast_net_adds", "n": 5, "agg": "sum"},
+    "groupby": {"by": ["date"], "agg": {"forecast_net_adds": "sum"}},
+    "pivot": {"index": "tier", "columns": "risk_flag", "values": "forecast_net_adds", "aggfunc": "count"},
+    "melt": {"id_vars": ["date"], "value_vars": ["actual", "forecast"], "var_name": "metric", "value_name": "subscribers"},
+    "sort": {"by": "forecast_net_adds", "ascending": false},
     "top_n": 20
   },
   "chart": {
     "kind": "line",
     "x": "date",
-    "y": "forecast_units",
+    "y": "forecast_net_adds",
     "series": null
   },
   "style": {
     "title": "My chart",
     "xlabel": "Date",
-    "ylabel": "Units",
+    "ylabel": "Net adds",
     "figsize": [10, 5],
     "tick_rotation": 0,
     "legend": true
@@ -73,7 +73,7 @@ Omit unused transform keys (or leave `transform` as `{}`).
 
 | Field | Options |
 |-------|---------|
-| `dataset` | `forecasts`, `recommendations`, `metrics`, `holdout_predictions`, `cleaned` |
+| `dataset` | `forecasts`, `recommendations`, `okr_summary`, `metrics`, `holdout_predictions`, `cleaned` |
 | `filter.op` | `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `notin`, `contains` |
 | `agg` / `aggfunc` | `sum`, `mean`, `count`, `min`, `max`, `median`, `nunique`, `size` |
 | `chart.kind` | `line`, `bar`, `barh`, `area`, `scatter`, `hist`, `heatmap` |
@@ -83,6 +83,9 @@ Omit unused transform keys (or leave `transform` as `{}`).
 - `heatmap` usually follows a `pivot` (no `x`/`y` required).
 - Multi-metric lines: `groupby` → `melt` → `chart.series` on the melted var column.
 - Top-N series curves: `top_groups` then `chart.series` on the group key.
+- `metrics` and `holdout_predictions` hold every target; filter on `target` (`gross_adds`, `churned_subs`, `hours_watched`) unless comparing targets.
+- `recommendations` and `okr_summary` hold every horizon; filter on `forecast_horizon` (usually 28).
+- Pivot `values` must be numeric (use `forecast_net_adds`, not `series_id`, even for `count`).
 
 ## Where to write specs
 
@@ -95,25 +98,28 @@ Prefer `outputs/adhoc_<slug>.json` for prompt-driven charts.
 
 ## Examples
 
-**WAPE by department (already a builtin):** see `plot_specs/wape_by_department.json`.
+**WAPE by tier and target (already a builtin):** see `plot_specs/wape_by_tier.json`.
 
-**Stockout recommendations by department:**
+**Churn-risk segments by tier (28-day):**
 
 ```json
 {
   "dataset": "recommendations",
   "transform": {
-    "filters": [{"col": "risk_flag", "op": "eq", "value": "STOCKOUT"}],
-    "groupby": {"by": ["department"], "agg": {"count": "size"}},
+    "filters": [
+      {"col": "forecast_horizon", "op": "eq", "value": 28},
+      {"col": "risk_flag", "op": "in", "value": ["NEGATIVE_NET_ADDS", "CHURN_SPIKE", "TENTPOLE_CLIFF"]}
+    ],
+    "groupby": {"by": ["tier"], "agg": {"count": "size"}},
     "sort": {"by": "count", "ascending": false}
   },
-  "chart": {"kind": "barh", "x": "department", "y": "count"},
+  "chart": {"kind": "barh", "x": "tier", "y": "count"},
   "style": {
-    "title": "Stockout recommendations by department",
-    "xlabel": "Count",
+    "title": "Churn-risk segments by tier (28-day)",
+    "xlabel": "Segments",
     "legend": false
   },
-  "output": "stockout_by_department.png"
+  "output": "churn_risk_by_tier.png"
 }
 ```
 

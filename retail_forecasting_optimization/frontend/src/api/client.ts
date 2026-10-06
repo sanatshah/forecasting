@@ -1,10 +1,11 @@
 import type {
   ActionBreakdownResponse,
   ApiError,
-  DepartmentMetricsResponse,
   HoldoutForecastsResponse,
+  OkrResponse,
   RecommendationsResponse,
-  SkuForecastsResponse,
+  SegmentForecastsResponse,
+  SegmentMetricsResponse,
   SummaryResponse,
 } from "../types";
 
@@ -32,27 +33,31 @@ async function fetchJson<T>(path: string): Promise<T> {
 export const api = {
   health: () => fetchJson<{ status: string }>("/api/health"),
   summary: () => fetchJson<SummaryResponse>("/api/summary"),
+  okr: () => fetchJson<OkrResponse>("/api/okr"),
   actionBreakdown: () => fetchJson<ActionBreakdownResponse>("/api/action-breakdown"),
-  skuForecasts: (topSkus = 8) =>
-    fetchJson<SkuForecastsResponse>(`/api/sku-forecasts?top_skus=${topSkus}`),
-  holdoutForecasts: (skuId: string) =>
+  segmentForecasts: () => fetchJson<SegmentForecastsResponse>("/api/segment-forecasts"),
+  holdoutForecasts: (segment: string, target: string) =>
     fetchJson<HoldoutForecastsResponse>(
-      `/api/holdout-forecasts?sku_id=${encodeURIComponent(skuId)}`,
+      `/api/holdout-forecasts?segment=${encodeURIComponent(segment)}&target=${encodeURIComponent(target)}`,
     ),
   recommendations: (params?: {
     risk?: string;
     action?: string;
-    department?: string;
+    tier?: string;
+    horizon?: number;
   }) => {
     const qs = new URLSearchParams();
     if (params?.risk) qs.set("risk", params.risk);
     if (params?.action) qs.set("action", params.action);
-    if (params?.department) qs.set("department", params.department);
+    if (params?.tier) qs.set("tier", params.tier);
+    if (params?.horizon) qs.set("horizon", String(params.horizon));
     const q = qs.toString();
     return fetchJson<RecommendationsResponse>(
       `/api/recommendations${q ? `?${q}` : ""}`,
     );
   },
-  departmentMetrics: () =>
-    fetchJson<DepartmentMetricsResponse>("/api/metrics/department"),
+  segmentMetrics: (target?: string) =>
+    fetchJson<SegmentMetricsResponse>(
+      `/api/metrics/segment${target ? `?target=${encodeURIComponent(target)}` : ""}`,
+    ),
 };

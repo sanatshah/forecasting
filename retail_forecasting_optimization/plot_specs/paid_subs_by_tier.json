@@ -1,0 +1,22 @@
+{
+  "dataset": "forecasts",
+  "transform": {
+    "groupby": {
+      "by": ["date", "tier"],
+      "agg": {"forecast_paid_subs": "sum"}
+    }
+  },
+  "chart": {
+    "kind": "line",
+    "x": "date",
+    "y": "forecast_paid_subs",
+    "series": "tier"
+  },
+  "style": {
+    "title": "Forecast Paid Subscribers by Tier",
+    "xlabel": "Date",
+    "ylabel": "Paid subs (end of day)",
+    "figsize": [10, 5]
+  },
+  "output": "paid_subs_by_tier.png"
+}

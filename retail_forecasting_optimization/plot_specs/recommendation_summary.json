@@ -1,6 +1,9 @@
 {
   "dataset": "recommendations",
   "transform": {
+    "filters": [
+      {"col": "forecast_horizon", "op": "eq", "value": 28}
+    ],
     "groupby": {
       "by": ["reason_code"],
       "agg": {"count": "size"}
@@ -13,8 +16,8 @@
     "y": "count"
   },
   "style": {
-    "title": "Recommendation Summary by Reason Code",
-    "ylabel": "Count",
+    "title": "Segment Recommendations by Reason Code (28-day)",
+    "ylabel": "Segments",
     "figsize": [9, 5],
     "tick_rotation": 30,
     "legend": false

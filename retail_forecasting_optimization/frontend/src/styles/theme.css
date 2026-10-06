@@ -1,13 +1,19 @@
 :root {
-  --brand-primary: #0f766e;
-  --brand-primary-dark: #115e59;
-  --color-ink: #17202a;
-  --color-white: #ffffff;
-  --color-gray-50: #f8fafc;
-  --color-gray-100: #f1f5f9;
-  --color-gray-200: #e2e8f0;
-  --color-gray-400: #94a3b8;
-  --color-gray-600: #475569;
+  --feather-yellow: #fcb711;
+  --feather-orange: #f37021;
+  --feather-red: #cc004c;
+  --feather-purple: #6460aa;
+  --feather-blue: #0089d0;
+  --feather-green: #0db14b;
+  --brand-primary: var(--feather-blue);
+  --brand-primary-dark: #006fa8;
+  --color-ink: #f4f4f6;
+  --color-white: #16161d;
+  --color-gray-50: #0b0b0f;
+  --color-gray-100: #1f1f28;
+  --color-gray-200: #2c2c38;
+  --color-gray-400: #5d5d6c;
+  --color-gray-600: #a8a8b3;
   --font-display: "DM Sans", system-ui, sans-serif;
   --font-body: "DM Sans", system-ui, sans-serif;
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
@@ -75,8 +81,8 @@ select {
 }
 
 .sidebar-brand {
-  background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-primary-dark) 100%);
-  color: var(--color-white);
+  background: #000000;
+  color: #ffffff;
   padding: 1.5rem 1.25rem;
   position: relative;
   overflow: hidden;
@@ -109,11 +115,6 @@ select {
 .brand-icon {
   width: 36px;
   height: 36px;
-  fill: none;
-  stroke: var(--color-white);
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
   flex-shrink: 0;
 }
 
@@ -135,7 +136,7 @@ select {
 .snapshot-badge {
   font-size: 0.8rem;
   opacity: 0.9;
-  background: rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.08);
   padding: 0.35rem 0.75rem;
   border-radius: var(--radius);
   margin-top: 1rem;
@@ -147,8 +148,21 @@ select {
   display: flex;
   flex-direction: column;
   flex: 1;
-  background: var(--color-ink);
+  background: #000000;
   padding: 0.75rem 0;
+}
+
+.feather-bar {
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--feather-yellow) 0 16.66%,
+    var(--feather-orange) 16.66% 33.33%,
+    var(--feather-red) 33.33% 50%,
+    var(--feather-purple) 50% 66.66%,
+    var(--feather-blue) 66.66% 83.33%,
+    var(--feather-green) 83.33% 100%
+  );
 }
 
 .nav-link {
@@ -163,12 +177,12 @@ select {
 }
 
 .nav-link:hover {
-  color: var(--color-white);
+  color: #ffffff;
   background: rgba(255, 255, 255, 0.04);
 }
 
 .nav-link.active {
-  color: var(--color-white);
+  color: #ffffff;
   border-left-color: var(--brand-primary);
   background: rgba(255, 255, 255, 0.06);
 }
@@ -231,6 +245,16 @@ select {
   color: var(--color-gray-600);
 }
 
+.kpi-delta {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-top: 0.35rem;
+}
+
+.kpi-delta-up { color: var(--feather-green); }
+.kpi-delta-down { color: var(--feather-red); }
+.kpi-delta-flat { color: var(--color-gray-600); }
+
 /* Chart panels */
 .chart-grid {
   display: grid;
@@ -289,6 +313,7 @@ select {
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius);
   background: var(--color-white);
+  color: var(--color-ink);
 }
 
 .filter-group select:focus {
@@ -356,12 +381,12 @@ select {
 
 .segment-btn-active {
   background: var(--brand-primary);
-  color: var(--color-white);
+  color: #ffffff;
 }
 
 .segment-btn-active:hover:not(:disabled) {
   background: var(--brand-primary-dark);
-  color: var(--color-white);
+  color: #ffffff;
 }
 
 .segment-btn:disabled {
@@ -422,16 +447,26 @@ select {
   letter-spacing: 0.04em;
 }
 
-.badge-risk-STOCKOUT { background: #fde8ea; color: #b81424; }
-.badge-risk-OVERSTOCK { background: #fff3e0; color: #e65100; }
-.badge-risk-WATCH_HIGH,
-.badge-risk-WATCH_LOW { background: #fff8e1; color: #f57f17; }
-.badge-risk-OK { background: #e8f5e9; color: #2e7d32; }
+.badge-risk-NEGATIVE_NET_ADDS { background: rgba(204, 0, 76, 0.18); color: #ff4d8d; }
+.badge-risk-CHURN_SPIKE { background: rgba(243, 112, 33, 0.18); color: #ff9a5c; }
+.badge-risk-TENTPOLE_CLIFF { background: rgba(100, 96, 170, 0.22); color: #a9a5f0; }
+.badge-risk-USAGE_DECLINE { background: rgba(252, 183, 17, 0.18); color: #fcb711; }
+.badge-risk-PRICE_SENSITIVE { background: rgba(0, 137, 208, 0.18); color: #4dbaf2; }
+.badge-risk-OK { background: rgba(13, 177, 75, 0.18); color: #3fd67a; }
 
-.badge-action-HOLD { background: var(--color-gray-100); color: var(--color-gray-600); }
-.badge-action-REPLENISH { background: #e3f2fd; color: #1565c0; }
-.badge-action-REDUCE { background: #fce4ec; color: #c2185b; }
-.badge-action-TRANSFER { background: #f3e5f5; color: #7b1fa2; }
+.badge-action-RETENTION_OFFER { background: rgba(204, 0, 76, 0.18); color: #ff4d8d; }
+.badge-action-ENGAGEMENT_PUSH { background: rgba(252, 183, 17, 0.18); color: #fcb711; }
+.badge-action-ANNUAL_PLAN_UPSELL { background: rgba(100, 96, 170, 0.22); color: #a9a5f0; }
+.badge-action-PROCEED_PRICE_CHANGE { background: rgba(13, 177, 75, 0.18); color: #3fd67a; }
+.badge-action-HOLD_PRICE { background: rgba(0, 137, 208, 0.18); color: #4dbaf2; }
+.badge-action-MONITOR { background: var(--color-gray-100); color: var(--color-gray-600); }
+
+.badge-price-PROCEED_PRICE_CHANGE { background: rgba(13, 177, 75, 0.18); color: #3fd67a; }
+.badge-price-HOLD_PRICE { background: rgba(243, 112, 33, 0.18); color: #ff9a5c; }
+.badge-price-NO_CHANGE_PLANNED { background: var(--color-gray-100); color: var(--color-gray-600); }
+
+.num-positive { color: var(--feather-green); }
+.num-negative { color: #ff4d8d; }
 
 .expand-btn {
   background: none;

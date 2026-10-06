@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import numpy as np
 import yaml
@@ -20,7 +20,7 @@ DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
 _LOGGER_CONFIGURED = False
 
 
-def get_logger(name: str = "retail_forecasting") -> logging.Logger:
+def get_logger(name: str = "subscriber_forecasting") -> logging.Logger:
     """Return a module logger, configuring the root handler once.
 
     A single stream handler with a consistent format is attached the first
@@ -63,6 +63,19 @@ def load_config(path: str | os.PathLike | None = None) -> Dict[str, Any]:
     return config
 
 
+def get_targets(config: Dict[str, Any]) -> List[str]:
+    """Return the configured forecast targets (falls back to ``target_col``)."""
+    data_cfg = config["data"]
+    return list(data_cfg.get("targets") or [data_cfg["target_col"]])
+
+
+def config_for_target(config: Dict[str, Any], target: str) -> Dict[str, Any]:
+    """Return a shallow config copy whose ``data.target_col`` is ``target``."""
+    cfg = dict(config)
+    cfg["data"] = {**config["data"], "target_col": target}
+    return cfg
+
+
 def resolve_path(relative_or_absolute: str | os.PathLike) -> Path:
     """Resolve a config path relative to the project root when not absolute."""
     p = Path(relative_or_absolute)
@@ -89,8 +102,8 @@ def safe_divide(
 ) -> np.ndarray:
     """Element-wise divide that returns ``fill`` where the denominator is 0.
 
-    Used throughout metrics and optimization to avoid divide-by-zero warnings
-    and NaNs when demand or price is zero.
+    Used throughout metrics and scenarios to avoid divide-by-zero warnings
+    and NaNs when the subscriber base, usage or price is zero.
     """
     numerator = np.asarray(numerator, dtype="float64")
     denominator = np.asarray(denominator, dtype="float64")

@@ -5,7 +5,7 @@ pipeline-facing entry point so ``main.py`` does not need to know about specs.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
@@ -21,6 +21,7 @@ def generate_all_plots(
     metrics_table: pd.DataFrame,
     daily_forecast: pd.DataFrame,
     recommendations: pd.DataFrame,
+    okr_summary: Optional[pd.DataFrame] = None,
 ) -> List[str]:
     """Generate every builtin plot_spec and return the list of file paths.
 
@@ -33,6 +34,8 @@ def generate_all_plots(
         "forecasts": daily_forecast,
         "recommendations": recommendations,
     }
+    if okr_summary is not None:
+        data_by_dataset["okr_summary"] = okr_summary
     paths = render_builtin_specs(config, data_by_dataset=data_by_dataset)
     logger.info("Generated %d plots", len(paths))
     return paths

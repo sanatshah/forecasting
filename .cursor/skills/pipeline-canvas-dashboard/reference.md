@@ -11,31 +11,45 @@ python -m src.plotting describe forecasts
 
 | Name | CSV | Use in dashboards |
 |------|-----|-------------------|
-| `forecasts` | `outputs/forecasts.csv` | Daily forward units by series; SKU/location/channel curves |
-| `recommendations` | `outputs/recommendations.csv` | Actions (HOLD, REPLENISH, REDUCE, TRANSFER), risk flags, inventory KPIs |
-| `metrics` | `outputs/model_metrics.csv` | WAPE/MAPE by model, department, channel |
-| `holdout_predictions` | `outputs/holdout_predictions.csv` | Actual vs forecast backtest lines |
-| `cleaned` | `data/processed/cleaned.csv` | Historical demand for context charts |
+| `forecasts` | `outputs/forecasts.csv` | Daily forward flows and derived KPIs per segment |
+| `recommendations` | `outputs/recommendations.csv` | Segment x horizon: risk flags, actions, price-change scenario |
+| `okr_summary` | `outputs/okr_summary.csv` | Growth OKRs per horizon, baseline vs price change |
+| `metrics` | `outputs/model_metrics.csv` | WAPE/MAPE by target, model, tier, channel, segment |
+| `holdout_predictions` | `outputs/holdout_predictions.csv` | Actual vs forecast backtest lines per target |
+| `cleaned` | `data/processed/cleaned.csv` | History for context charts |
 
 ## Recommendations columns (dashboard-relevant)
 
 | Column | Role |
 |--------|------|
-| `date` | Snapshot date (usually one row per SKU-location) |
-| `department`, `class`, `subclass` | Merch hierarchy filters |
-| `sku_id`, `location_id`, `channel` | Series keys |
-| `recommended_action` | HOLD, REPLENISH, REDUCE_EXPOSURE, TRANSFER |
-| `risk_flag` | STOCKOUT, OVERSTOCK, BALANCED, etc. |
-| `forecast_units`, `on_hand_units`, `weeks_of_supply` | Numeric KPIs |
+| `date` | Snapshot date (last observed day) |
+| `series_id`, `tier`, `acquisition_channel`, `distribution_partner` | Segment identity and filters |
+| `forecast_horizon` | 7 / 14 / 28 days; filter to one (usually 28) |
+| `forecast_gross_adds`, `forecast_churned_subs`, `forecast_net_adds`, `ending_paid_subs` | Baseline outlook |
+| `hours_per_paid_sub_month`, `usage_change_pct` | Usage OKR and trend vs trailing |
+| `forecast_churn_rate`, `trailing_churn_rate` | Daily churn rate, forecast vs trailing |
+| `list_price`, `scenario_new_price`, `net_adds_delta`, `revenue_delta` | Price-change scenario |
+| `risk_flag` | NEGATIVE_NET_ADDS, CHURN_SPIKE, TENTPOLE_CLIFF, USAGE_DECLINE, PRICE_SENSITIVE, OK |
+| `recommended_action` | RETENTION_OFFER, ENGAGEMENT_PUSH, ANNUAL_PLAN_UPSELL, PROCEED_PRICE_CHANGE, HOLD_PRICE, MONITOR |
+| `price_decision` | PROCEED_PRICE_CHANGE, HOLD_PRICE, NO_CHANGE_PLANNED |
+| `reason_code`, `explanation` | Why |
 
-Normalize `REDUCE_EXPOSURE` → `REDUCE` in display labels when matching existing canvases.
+## OKR summary columns
+
+| Column | Role |
+|--------|------|
+| `forecast_horizon`, `scenario` | One row per horizon x (baseline, price_change) |
+| `high_value_net_adds`, `high_value_paid_subs_end`, `high_value_gross_adds` | OKR 1: high-value subscriber growth |
+| `hours_per_paid_sub_month`, `high_value_hours_per_paid_sub_month` | OKR 2: usage per paid sub |
+| `total_net_adds`, `total_paid_subs_end`, `revenue` | Context |
 
 ## Metrics columns
 
 | Column | Role |
 |--------|------|
+| `target` | gross_adds, churned_subs, hours_watched |
 | `model` | Model name |
-| `level` | overall, department, channel |
+| `level` | overall, tier, acquisition_channel, distribution_partner, series_id, tentpole_period |
 | `group` | Segment name when level ≠ overall |
 | `wape`, `mape`, `mae`, `rmse`, `bias` | Metric values per row |
 
@@ -43,39 +57,38 @@ Normalize `REDUCE_EXPOSURE` → `REDUCE` in display labels when matching existin
 
 | Column | Role |
 |--------|------|
-| `date` | Forecast date |
-| `series_id` or `sku_id` + `location_id` + `channel` | Series identity |
-| `forecast_units` | Predicted demand |
-| `department`, `class`, `subclass`, `lifecycle` | Filters and grouping |
+| `date`, `horizon_day` | Forecast date and step |
+| `series_id`, `tier`, `acquisition_channel`, `distribution_partner` | Segment identity |
+| `forecast_gross_adds`, `forecast_churned_subs`, `forecast_hours_watched` | Forecast targets |
+| `model_<target>` | Model used per target |
+| `opening_paid_subs`, `forecast_net_adds`, `forecast_paid_subs`, `forecast_hours_per_paid_sub` | Derived KPIs |
+| `tentpole_flag`, `tentpole_name` | Content calendar overlay |
 
 ## Dashboard patterns
 
-### Executive summary strip
+### Growth OKR strip
 
-- **Stats**: best model + WAPE from `metrics` (level=overall); stockout/overstock counts from `recommendations` (`risk_flag`).
-- **Source caption**: `outputs/model_metrics.csv` + `outputs/recommendations.csv` + snapshot date.
+- **Stats**: high-value net adds and paid subs, hours per paid sub per month, revenue; baseline vs price change deltas from `okr_summary` at the primary horizon.
+- **Source caption**: `outputs/okr_summary.csv` + snapshot date.
 
-### Action breakdown by department
+### Actions by tier
 
-- **Groupby**: `department` × `recommended_action` (count rows).
-- **Charts**: stacked `BarChart`; normalized mix per department; `UsageBar` per department.
-- **Table**: department × action columns + totals row.
+- **Groupby**: `tier` × `recommended_action` at one horizon (count rows).
+- **Charts**: stacked `BarChart`; `UsageBar` per tier.
 
-### SKU forecast explorer
+### Segment forecast explorer
 
-- **Top SKUs**: by sum of `forecast_units` over horizon (default 8).
-- **Per SKU**: aggregate daily totals + per location/channel series for `LineChart`.
-- **Interaction**: `Select` for SKU via `useCanvasState`; optional `.canvas.data.json` default.
-- **Cap series**: keep ≤5 location/channel lines per SKU for readability.
+- **Per segment**: daily net adds, paid subs and hours per paid sub from `segment-forecasts`.
+- **Interaction**: `Select` for segment via `useCanvasState`.
+- **Overlay**: mark tentpole days from `forecasts.tentpole_name`.
 
 ### Model accuracy comparison
 
-- **Filter** `metrics` where `level='department'`; compare `wape` across `group` values.
-- **BarChart**: departments on X, one series per model (or single best model).
+- **Filter** `metrics` by `target` and `level='tier'` (or `acquisition_channel`); compare `wape` across `group`.
 
-### Risk heatmap alternative
+### Dense matrices
 
-For dense matrices, prefer **create-plot** (`chart.kind: heatmap`). Use canvas when the user wants filtering or narrative layout around a smaller table.
+For tier × channel heatmaps, prefer **create-plot** (`chart.kind: heatmap`). Use a canvas when the user wants filtering or narrative layout.
 
 ## Refresh workflow
 
@@ -86,6 +99,6 @@ For dense matrices, prefer **create-plot** (`chart.kind: heatmap`). Use canvas w
 
 ## TypeScript embedding tips
 
-- Use `as const` on string literal arrays (`DATES`, department names).
+- Use `as const` on string literal arrays (`DATES`, tier names).
 - Prefer plain objects/arrays over CSV-sized raw rows in the canvas file.
 - Type extracted payloads with small local `type` aliases matching the JSON shape.

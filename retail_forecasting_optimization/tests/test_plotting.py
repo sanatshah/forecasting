@@ -21,8 +21,11 @@ def tiny_forecasts() -> pd.DataFrame:
                 ["2024-01-01", "2024-01-02", "2024-01-01", "2024-01-02"]
             ),
             "series_id": ["A", "A", "B", "B"],
-            "department": ["Home", "Home", "Mens Apparel", "Mens Apparel"],
-            "forecast_units": [10.0, 12.0, 3.0, 4.0],
+            "tier": ["Premium", "Premium", "Ad Tier", "Ad Tier"],
+            "forecast_value": [10.0, 12.0, 3.0, 4.0],
+            "forecast_net_adds": [5.0, -2.0, 1.0, 3.0],
+            "forecast_paid_subs": [1005.0, 1003.0, 501.0, 504.0],
+            "forecast_hours_per_paid_sub": [1.1, 1.2, 0.7, 0.8],
         }
     )
 
@@ -31,10 +34,12 @@ def tiny_forecasts() -> pd.DataFrame:
 def tiny_recs() -> pd.DataFrame:
     return pd.DataFrame(
         {
-            "department": ["Home", "Home", "Mens Apparel"],
-            "risk_flag": ["STOCKOUT", "OVERSTOCK", "STOCKOUT"],
-            "forecast_units": [1.0, 2.0, 3.0],
-            "reason_code": ["LOW_WOS", "HIGH_WOS", "LOW_WOS"],
+            "tier": ["Premium", "Premium", "Ad Tier"],
+            "acquisition_channel": ["direct", "app_store", "direct"],
+            "risk_flag": ["CHURN_SPIKE", "OK", "CHURN_SPIKE"],
+            "forecast_horizon": [28, 28, 28],
+            "forecast_net_adds": [1.0, 2.0, 3.0],
+            "reason_code": ["CHURN_ABOVE_TREND", "STABLE_GROWTH", "CHURN_ABOVE_TREND"],
         }
     )
 
@@ -76,7 +81,7 @@ def test_plot_spec_accepts_minimal_line():
     spec = PlotSpec.model_validate(
         {
             "dataset": "forecasts",
-            "chart": {"kind": "line", "x": "date", "y": "forecast_units"},
+            "chart": {"kind": "line", "x": "date", "y": "forecast_net_adds"},
             "output": "ok.png",
         }
     )
@@ -102,23 +107,23 @@ def test_filter_groupby_sort(tiny_forecasts):
         {
             "dataset": "forecasts",
             "transform": {
-                "filters": [{"col": "department", "op": "eq", "value": "Home"}],
-                "groupby": {"by": ["date"], "agg": {"forecast_units": "sum"}},
+                "filters": [{"col": "tier", "op": "eq", "value": "Premium"}],
+                "groupby": {"by": ["date"], "agg": {"forecast_value": "sum"}},
                 "sort": {"by": "date", "ascending": True},
             },
-            "chart": {"kind": "line", "x": "date", "y": "forecast_units"},
+            "chart": {"kind": "line", "x": "date", "y": "forecast_value"},
             "output": "t.png",
         }
     )
     out = apply_transforms(tiny_forecasts, spec.transform)
-    assert list(out["forecast_units"]) == [10.0, 12.0]
+    assert list(out["forecast_value"]) == [10.0, 12.0]
 
 
 def test_top_groups_and_size_groupby(tiny_forecasts, tiny_recs):
     from src.plotting.spec import TransformSpec
 
     tg = TransformSpec.model_validate(
-        {"top_groups": {"by": "series_id", "value": "forecast_units", "n": 1, "agg": "sum"}}
+        {"top_groups": {"by": "series_id", "value": "forecast_value", "n": 1, "agg": "sum"}}
     )
     top = apply_transforms(tiny_forecasts, tg)
     assert set(top["series_id"]) == {"A"}
@@ -129,7 +134,7 @@ def test_top_groups_and_size_groupby(tiny_forecasts, tiny_recs):
             {"groupby": {"by": ["reason_code"], "agg": {"count": "size"}}}
         ),
     )
-    assert int(counted.loc[counted["reason_code"] == "LOW_WOS", "count"].iloc[0]) == 2
+    assert int(counted.loc[counted["reason_code"] == "CHURN_ABOVE_TREND", "count"].iloc[0]) == 2
 
 
 def test_pivot_matrix(tiny_recs):
@@ -140,16 +145,16 @@ def test_pivot_matrix(tiny_recs):
         TransformSpec.model_validate(
             {
                 "pivot": {
-                    "index": "department",
+                    "index": "tier",
                     "columns": "risk_flag",
-                    "values": "forecast_units",
+                    "values": "forecast_net_adds",
                     "aggfunc": "count",
                 }
             }
         ),
     )
-    assert matrix.index.name == "department"
-    assert "STOCKOUT" in matrix.columns
+    assert matrix.index.name == "tier"
+    assert "CHURN_SPIKE" in matrix.columns
 
 
 def test_unknown_column_error_lists_columns(tiny_forecasts):
@@ -164,7 +169,7 @@ def test_unknown_column_error_lists_columns(tiny_forecasts):
         )
     msg = str(exc.value)
     assert "missing_col" in msg
-    assert "forecast_units" in msg
+    assert "forecast_value" in msg
 
 
 # ---------------------------------------------------------------------------
@@ -175,20 +180,20 @@ def test_unknown_column_error_lists_columns(tiny_forecasts):
 @pytest.mark.parametrize(
     "kind,extra_chart,extra_transform",
     [
-        ("line", {}, {"groupby": {"by": ["date"], "agg": {"forecast_units": "sum"}}}),
-        ("area", {}, {"groupby": {"by": ["date"], "agg": {"forecast_units": "sum"}}}),
-        ("bar", {}, {"groupby": {"by": ["department"], "agg": {"forecast_units": "sum"}}}),
-        ("barh", {}, {"groupby": {"by": ["department"], "agg": {"forecast_units": "sum"}}}),
+        ("line", {}, {"groupby": {"by": ["date"], "agg": {"forecast_value": "sum"}}}),
+        ("area", {}, {"groupby": {"by": ["date"], "agg": {"forecast_value": "sum"}}}),
+        ("bar", {}, {"groupby": {"by": ["tier"], "agg": {"forecast_value": "sum"}}}),
+        ("barh", {}, {"groupby": {"by": ["tier"], "agg": {"forecast_value": "sum"}}}),
         ("scatter", {}, {}),
-        ("hist", {"x": "forecast_units", "y": None}, {}),
+        ("hist", {"x": "forecast_value", "y": None}, {}),
         (
             "heatmap",
             {"x": None, "y": None},
             {
                 "pivot": {
-                    "index": "department",
+                    "index": "tier",
                     "columns": "series_id",
-                    "values": "forecast_units",
+                    "values": "forecast_value",
                     "aggfunc": "sum",
                 }
             },
@@ -196,14 +201,14 @@ def test_unknown_column_error_lists_columns(tiny_forecasts):
     ],
 )
 def test_render_each_kind(tmp_path, config, tiny_forecasts, kind, extra_chart, extra_transform):
-    chart = {"kind": kind, "x": "date", "y": "forecast_units"}
+    chart = {"kind": kind, "x": "date", "y": "forecast_value"}
     chart.update({k: v for k, v in extra_chart.items() if v is not None or k in ("x", "y")})
     if kind == "hist":
-        chart = {"kind": "hist", "x": "forecast_units"}
+        chart = {"kind": "hist", "x": "forecast_value"}
     if kind == "heatmap":
         chart = {"kind": "heatmap"}
     if kind in ("bar", "barh"):
-        chart["x"] = "department"
+        chart["x"] = "tier"
 
     spec = {
         "dataset": "forecasts",
@@ -218,24 +223,32 @@ def test_render_each_kind(tmp_path, config, tiny_forecasts, kind, extra_chart, e
 
 
 def test_render_builtin_specs_with_frames(tmp_path, config, tiny_forecasts, tiny_recs):
-    # Minimal frames matching columns referenced by builtins that use these datasets.
+    # Minimal frames matching columns referenced by every builtin spec.
     holdout = pd.DataFrame(
         {
-            "date": pd.to_datetime(["2024-01-01", "2024-01-02"]),
-            "actual": [5.0, 6.0],
-            "forecast": [4.5, 6.5],
+            "date": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-01"]),
+            "target": ["gross_adds", "gross_adds", "churned_subs"],
+            "actual": [5.0, 6.0, 2.0],
+            "forecast": [4.5, 6.5, 2.5],
         }
     )
     metrics = pd.DataFrame(
         {
-            "model": ["m", "m", "m"],
-            "level": ["department", "department", "channel"],
-            "group": ["Home", "Mens Apparel", "store"],
-            "wape": [0.2, 0.3, 0.1],
-            "mae": [1.0, 2.0, 0.5],
+            "model": ["m"] * 5,
+            "target": ["gross_adds", "churned_subs", "gross_adds", "churned_subs", "churned_subs"],
+            "level": ["tier", "tier", "acquisition_channel", "series_id", "series_id"],
+            "group": ["Premium", "Premium", "direct", "Premium|direct", "Ad Tier|direct"],
+            "wape": [0.2, 0.3, 0.1, 0.25, 0.35],
+            "mae": [1.0, 2.0, 0.5, 1.5, 2.5],
         }
     )
-    # Point plots_dir at tmp so we don't clobber real outputs.
+    okr = pd.DataFrame(
+        {
+            "forecast_horizon": [28, 28, 7],
+            "scenario": ["baseline", "price_change", "baseline"],
+            "high_value_net_adds": [1200.0, 900.0, 300.0],
+        }
+    )
     cfg = dict(config)
     cfg["paths"] = dict(config["paths"])
     cfg["paths"]["plots_dir"] = str(tmp_path)
@@ -247,9 +260,11 @@ def test_render_builtin_specs_with_frames(tmp_path, config, tiny_forecasts, tiny
             "recommendations": tiny_recs,
             "metrics": metrics,
             "holdout_predictions": holdout,
+            "okr_summary": okr,
         },
     )
-    assert len(paths) >= 7
+    n_specs = len(list((PROJECT_ROOT / "plot_specs").glob("*.json")))
+    assert len(paths) == n_specs
     for p in paths:
         assert Path(p).is_file()
 
@@ -258,6 +273,7 @@ def test_list_datasets_shape(config):
     rows = list_datasets(config)
     names = {r["name"] for r in rows}
     assert names == set(DATASET_NAMES)
+    assert "okr_summary" in names
     for r in rows:
         assert "exists" in r and "path" in r and "description" in r
 

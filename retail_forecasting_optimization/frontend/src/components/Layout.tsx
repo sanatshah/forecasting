@@ -4,10 +4,14 @@ interface LayoutProps {
   snapshotDate?: string;
 }
 
-function StoreIcon() {
+const FEATHER_COLORS = ["#FCB711", "#F37021", "#CC004C", "#6460AA", "#0089D0", "#0DB14B"];
+
+function FeatherIcon() {
   return (
     <svg className="brand-icon" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 10v10h16V10M3 10l2-6h14l2 6M8 20v-6h4v6M3 10a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0" />
+      {FEATHER_COLORS.map((color, i) => (
+        <circle key={color} cx={4 + i * 3.2} cy={i % 2 === 0 ? 9 : 15} r={2.4} fill={color} />
+      ))}
     </svg>
   );
 }
@@ -21,10 +25,10 @@ export function Layout({ snapshotDate }: LayoutProps) {
       <aside className="app-sidebar">
         <header className="sidebar-brand">
           <div className="brand">
-            <StoreIcon />
+            <FeatherIcon />
             <div>
-              <div className="brand-title">RetailStore</div>
-              <div className="brand-subtitle">Demand Planning</div>
+              <div className="brand-title">Peacock</div>
+              <div className="brand-subtitle">Subscriber Planning</div>
             </div>
           </div>
           {snapshotDate && (
@@ -35,16 +39,17 @@ export function Layout({ snapshotDate }: LayoutProps) {
           <NavLink to="/" end className={navClassName}>
             Overview
           </NavLink>
-          <NavLink to="/recommendations" className={navClassName}>
-            Recommendations
+          <NavLink to="/segments" className={navClassName}>
+            Segments
           </NavLink>
-          <NavLink to="/forecasts" className={navClassName}>
-            Forecasts
+          <NavLink to="/scenarios" className={navClassName}>
+            Scenarios
           </NavLink>
           <NavLink to="/accuracy" className={navClassName}>
             Accuracy
           </NavLink>
         </nav>
+        <div className="feather-bar" aria-hidden="true" />
       </aside>
       <main className="app-main">
         <Outlet />

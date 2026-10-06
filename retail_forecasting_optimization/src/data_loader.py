@@ -1,4 +1,4 @@
-"""Data ingestion: load the raw retail CSV into a typed, sorted DataFrame.
+"""Data ingestion: load the raw subscriber CSV into a typed, sorted DataFrame.
 
 The loader is deliberately conservative: it parses dates, coerces numeric
 columns, and sorts by series + date so that every downstream module (feature
@@ -18,15 +18,19 @@ logger = get_logger(__name__)
 # Columns we expect to be numeric. Coerced with errors="coerce" so bad values
 # surface as NaN for the validation layer rather than crashing the load.
 _NUMERIC_COLUMNS = [
-    "units_sold",
-    "sales_revenue",
-    "regular_price",
-    "selling_price",
-    "markdown_pct",
+    "gross_adds",
+    "churned_subs",
+    "paid_subs_bod",
+    "paid_subs_eod",
+    "hours_watched",
+    "daily_active_subs",
+    "list_price",
+    "effective_price",
+    "discount_pct",
     "promo_flag",
-    "inventory_on_hand",
-    "inventory_in_transit",
-    "stockout_flag",
+    "tentpole_flag",
+    "tentpole_intensity",
+    "price_increase_flag",
     "holiday_flag",
     "fiscal_week",
     "fiscal_month",
@@ -69,6 +73,24 @@ def load_raw_data(config: Dict[str, Any], path: str | Path | None = None) -> pd.
         df = df.sort_values(sort_keys).reset_index(drop=True)
 
     return df
+
+
+def load_content_calendar(config: Dict[str, Any]) -> pd.DataFrame:
+    """Load the known-in-advance content calendar (tentpoles + holidays).
+
+    Returns an empty frame when the calendar file is absent so forecasting can
+    fall back to zeroed future event flags.
+    """
+    path_str = config["paths"].get("content_calendar_csv")
+    if not path_str:
+        return pd.DataFrame()
+    path = resolve_path(path_str)
+    if not path.exists():
+        logger.warning("Content calendar not found at %s; future events default to 0.", path)
+        return pd.DataFrame()
+    cal = pd.read_csv(path)
+    cal[config["data"]["date_col"]] = pd.to_datetime(cal[config["data"]["date_col"]])
+    return cal
 
 
 def add_series_id(df: pd.DataFrame, config: Dict[str, Any]) -> pd.DataFrame:

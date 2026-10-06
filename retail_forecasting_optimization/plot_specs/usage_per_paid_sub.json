@@ -1,0 +1,22 @@
+{
+  "dataset": "forecasts",
+  "transform": {
+    "groupby": {
+      "by": ["date", "tier"],
+      "agg": {"forecast_hours_per_paid_sub": "mean"}
+    }
+  },
+  "chart": {
+    "kind": "line",
+    "x": "date",
+    "y": "forecast_hours_per_paid_sub",
+    "series": "tier"
+  },
+  "style": {
+    "title": "Forecast Hours per Paid Sub per Day by Tier (mean across channels)",
+    "xlabel": "Date",
+    "ylabel": "Hours / paid sub / day",
+    "figsize": [10, 5]
+  },
+  "output": "usage_per_paid_sub.png"
+}

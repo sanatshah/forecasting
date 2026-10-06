@@ -96,7 +96,7 @@ def test_forecast_with_best_routes_to_chronos(sample_df, config, monkeypatch):
     )
     assert (daily["model"] == FakeChronos.name).all()
     assert len(daily) == cleaned["series_id"].nunique() * 7
-    assert (daily["forecast_units"] >= 0).all()
+    assert (daily["forecast_value"] >= 0).all()
 
 
 @pytest.mark.skipif(

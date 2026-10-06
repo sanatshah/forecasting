@@ -4,11 +4,15 @@
 
 ### What this repo is
 
-The only runnable product in this repository is the **Retail Demand Forecasting &
-Optimization** pipeline under `retail_forecasting_optimization/`. It is primarily a
-**Python batch/CLI pipeline**, with an optional **Macy's-themed React dashboard**
-(`frontend/` + FastAPI in `src/dashboard_api.py`) that reads live `outputs/` CSVs.
-`demo_prompts/` holds a synthetic dataset generator and prompt text; it is not a service.
+The only runnable product in this repository is the **Peacock Subscriber
+Forecasting & Scenarios** pipeline under `retail_forecasting_optimization/` (the
+directory name is a holdover from the retail model it was adapted from). It is
+primarily a **Python batch/CLI pipeline** that forecasts gross adds, churn and
+hours watched per segment (tier x acquisition channel), derives net adds, paid
+subs and usage per paid sub, and runs a price-change scenario engine. An optional
+**Peacock-themed React dashboard** (`frontend/` + FastAPI in
+`src/dashboard_api.py`) reads live `outputs/` CSVs. `demo_prompts/` holds a
+synthetic dataset generator and prompt text; it is not a service.
 
 ### Environment
 
@@ -26,8 +30,8 @@ Run these from `retail_forecasting_optimization/` (see `README.md` and the
 `run-pipeline` skill for full details):
 
 - Tests: `./.venv/bin/python -m pytest -q`
-- Fast smoke run (4 series, ~10s): `./.venv/bin/python main.py --quick`
-- Full pipeline (~70s): `./.venv/bin/python main.py`
+- Fast smoke run (4 segments, all 3 targets): `./.venv/bin/python main.py --quick`
+- Full pipeline (12 segments x 3 targets): `./.venv/bin/python main.py`
 - Dashboard API: `./.venv/bin/uvicorn src.dashboard_api:app --reload --port 8000`
 - Dashboard UI: `cd frontend && npm install && npm run dev` (see README)
 
@@ -40,6 +44,8 @@ there is no lint step to run.
   `outputs/data_quality_report.csv` (not a crash).
 - Outputs (`outputs/*.csv`, `outputs/plots/*.png`, `data/processed/cleaned.csv`)
   are gitignored; do not commit them unless asked.
-- Input data `data/sample_input.csv` already ships in the repo. If ever missing,
-  regenerate from repo root:
+- Input data `data/sample_input.csv` and `data/content_calendar.csv` ship in the
+  repo. If either is missing, regenerate both from repo root:
   `python demo_prompts/IDE_demo_prompt/generate_dataset.py --out retail_forecasting_optimization/data/sample_input.csv --seed 42`.
+- The pipeline loops over `data.targets`; per-target artifacts carry a `target`
+  column (`model_metrics.csv`, `holdout_predictions.csv`).

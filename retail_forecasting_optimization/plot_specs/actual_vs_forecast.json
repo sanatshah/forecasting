@@ -1,6 +1,9 @@
 {
   "dataset": "holdout_predictions",
   "transform": {
+    "filters": [
+      {"col": "target", "op": "eq", "value": "gross_adds"}
+    ],
     "groupby": {
       "by": ["date"],
       "agg": {"actual": "sum", "forecast": "sum"}
@@ -9,19 +12,19 @@
       "id_vars": ["date"],
       "value_vars": ["actual", "forecast"],
       "var_name": "metric",
-      "value_name": "units"
+      "value_name": "subscribers"
     }
   },
   "chart": {
     "kind": "line",
     "x": "date",
-    "y": "units",
+    "y": "subscribers",
     "series": "metric"
   },
   "style": {
-    "title": "Actual vs Forecast Demand (holdout, all series)",
+    "title": "Actual vs Forecast Gross Adds (holdout, all segments)",
     "xlabel": "Date",
-    "ylabel": "Units",
+    "ylabel": "Gross adds",
     "figsize": [10, 5]
   },
   "output": "actual_vs_forecast.png"

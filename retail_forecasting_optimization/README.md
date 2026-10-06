@@ -1,249 +1,255 @@
-# Retail Demand Forecasting & Optimization
+# Peacock Subscriber Forecasting & Scenarios
 
-A modular, production-oriented Python system that forecasts retail demand and
-turns those forecasts into concrete inventory and markdown recommendations. It
-is built to run locally on a sample dataset today and to scale to real retail
-data at **UPC / SKU / Location / Channel / Day** grain later.
+A modular Python pipeline that forecasts Peacock subscriber flows and usage,
+then turns those forecasts into segment-level retention, engagement and pricing
+decisions. It rolls everything up into two Growth OKRs:
+
+1. **High-value subscriber growth**: net adds and ending paid subs for
+   full-price, directly billed Premium and Premium Plus.
+2. **Usage per paid sub**: hours watched per paid subscriber per month.
+
+It runs locally on a synthetic sample today and is shaped for real billing and
+engagement data at **tier x acquisition channel x day** grain.
 
 ---
 
-## 1. Project purpose
+## 1. Why a demand-forecasting stack fits subscribers
 
-Retail demand is seasonal, promotional, intermittent, and sensitive to price,
-markdowns, inventory, and holidays. This project provides an end-to-end
-pipeline that:
+Retail demand forecasting and subscriber forecasting are the same problem:
+predict a flow over time from history, seasonality and price. The pipeline
+started as a retail model and maps across like this:
 
-1. Ingests time-series sales data.
-2. Validates and cleans it, producing a data-quality report.
-3. Engineers retail-specific, leakage-safe features.
-4. Trains naive, statistical, and machine-learning forecasters.
-5. Evaluates them with retail-appropriate metrics and selects the best.
-6. Produces forward forecasts for 7, 14, and 28-day horizons.
-7. Runs an optimization layer that recommends replenish / hold / transfer /
-   reduce and markdown depth, respecting business guardrails.
-8. Generates plots and plain-English explanations.
+| Retail | Peacock |
+|---|---|
+| Units sold | Net subscribers by tier: gross adds minus churn (Premium, Premium Plus, Ad Tier) |
+| Store / SKU | Segment: tier x acquisition channel (direct, app store, MVPD partner, retail bundle) with distribution partner as an attribute |
+| Seasonality and promos | Content calendar and sports. Tentpoles such as NFL, the Olympics and big Bravo premieres drive signups and churn the way holidays drive retail |
+| Price | List price per tier; a planned increase is a scenario input |
+| Basket size | Usage per paid sub (hours watched per paid sub) |
+| Inventory on hand | Paid subscriber base at start of day (`paid_subs_bod`) |
+| Replenish / markdown recommendations | Retention offer / engagement push / annual-plan upsell / proceed or hold a price change |
 
-## 2. Retail use case
+Gross adds, churn and hours are each forecast as a non-negative flow; net adds,
+paid subs and hours per paid sub are derived, which keeps forecasts coherent
+(paid subs = opening base + cumulative net adds).
 
-The system supports pricing, inventory, markdown, and replenishment decisions.
-For each SKU/location/channel it answers:
-
-- How much will we sell over the next 7/14/28 days?
-- Are we heading for a stockout or an overstock?
-- Should we mark down, and how deep, given margin guardrails and price
-  elasticity?
-- What is the expected sales and margin impact of the recommended action?
-
-## 3. Setup instructions
+## 2. Setup
 
 ```bash
 cd retail_forecasting_optimization
 
-# Windows / PowerShell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-
 # macOS / Linux
 python3 -m venv .venv
 ./.venv/bin/pip install -r requirements.txt
+
+# Windows / PowerShell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-`xgboost` and `lightgbm` are optional. If they cannot be installed on your
-platform/Python version, the system automatically falls back to scikit-learn's
-`HistGradientBoostingRegressor` (configurable in `config/config.yaml`).
+`xgboost` and `lightgbm` are optional. If they cannot be installed, the system
+falls back to scikit-learn's `HistGradientBoostingRegressor`.
 
-## 4. How to run
+Regenerate the synthetic sample (and its content calendar) from the repo root:
 
 ```bash
-# Full pipeline on the sample data
-.\.venv\Scripts\python.exe main.py
-
-# Fast smoke run on a few series
-.\.venv\Scripts\python.exe main.py --quick
-
-# Custom config
-.\.venv\Scripts\python.exe main.py --config config/config.yaml
-
-# Tests
-.\.venv\Scripts\python.exe -m pytest -q
+python demo_prompts/IDE_demo_prompt/generate_dataset.py \
+  --out retail_forecasting_optimization/data/sample_input.csv --seed 42
 ```
 
-The run prints an executive summary and writes all artifacts to `outputs/`.
+This writes `data/sample_input.csv` (12 segments, 2024-01-01 to 2026-09-30)
+and `data/content_calendar.csv` (tentpoles and holidays through 2026-12-31).
+
+## 3. How to run
+
+```bash
+./.venv/bin/python main.py            # full pipeline
+./.venv/bin/python main.py --quick    # fast smoke run on a few segments
+./.venv/bin/python -m pytest -q       # tests
+```
+
+The run prints an executive summary (best model per target, Growth OKRs
+baseline vs price change, risk and action counts) and writes artifacts to
+`outputs/`. Exit code `2` means data validation failed; see
+`outputs/data_quality_report.csv`.
 
 ### Web dashboard (React)
 
-A RetailStore-branded React dashboard reads live pipeline outputs via a FastAPI API.
-
-**Prerequisites:** Run the pipeline first so `outputs/*.csv` exist.
+A Peacock-themed React dashboard reads live pipeline outputs through a FastAPI
+API. Run the pipeline first so `outputs/*.csv` exist.
 
 ```bash
-# Terminal 1 — API (from retail_forecasting_optimization/)
-./.venv/bin/pip install -r requirements.txt
+# Terminal 1 - API (from retail_forecasting_optimization/)
 ./.venv/bin/uvicorn src.dashboard_api:app --reload --port 8000
 
-# Terminal 2 — UI
+# Terminal 2 - UI
 cd frontend
 npm install
 npm run dev
 ```
 
-Open http://localhost:5173. Vite proxies `/api` to the API on port 8000.
+Open http://localhost:5173. Vite proxies `/api` to port 8000.
 
 | Page | Content |
 |------|---------|
-| Overview | KPIs, risk distribution, actions by department |
-| Recommendations | Filterable decision table with explanations |
-| Forecasts | SKU selector + forward demand curves |
-| Accuracy | WAPE by department for the best model |
+| Overview | Growth OKR KPIs, baseline vs price-change net adds, segment risk, actions by tier |
+| Segments | Segment selector, forward net adds / paid subs / hours per sub, holdout overlay per target |
+| Scenarios | Filterable decision table: risk, action, price decision, net-add and revenue deltas, explanations |
+| Accuracy | WAPE by tier and acquisition channel for the best model, per target |
 
-Production build: `cd frontend && npm run build` (output in `frontend/dist/`).
+API endpoints: `/api/health`, `/api/summary`, `/api/okr`,
+`/api/action-breakdown`, `/api/segment-forecasts`,
+`/api/holdout-forecasts?segment=&target=`,
+`/api/recommendations?tier=&risk=&action=&horizon=`,
+`/api/metrics/segment?target=`.
 
-## 5. Input data schema
+## 4. Input data schema
 
-Daily rows at `date x sku_id x location_id x channel` grain:
+`data/sample_input.csv`: daily rows at `date x tier x acquisition_channel`.
 
 | Column | Meaning |
 |---|---|
 | `date` | Calendar date |
-| `sku_id`, `product_id` | SKU and parent product identifiers |
-| `location_id`, `channel` | Store/DC id and sales channel (store/online) |
-| `department`, `class`, `subclass` | Merchandise hierarchy |
-| `units_sold` | Target: units sold that day |
-| `sales_revenue` | Revenue that day |
-| `regular_price`, `selling_price`, `markdown_pct` | Pricing |
-| `promo_flag`, `promo_event_name` | Promotion indicator/name |
-| `inventory_on_hand`, `inventory_in_transit` | Inventory position |
-| `stockout_flag` | Stockout indicator |
-| `holiday_flag` | Holiday indicator |
-| `fiscal_week`, `fiscal_month`, `fiscal_quarter` | Fiscal calendar |
-| `season`, `product_lifecycle_status` | Season, lifecycle (New/Core/End of Life) |
+| `tier` | Premium, Premium Plus, Ad Tier |
+| `acquisition_channel`, `distribution_partner` | direct / app_store / mvpd_partner / retail_bundle and the partner (Peacock, Apple/Google, Xfinity/Spectrum, Retail Bundle) |
+| `gross_adds`, `churned_subs` | Targets: new paid subs and cancellations that day |
+| `paid_subs_bod`, `paid_subs_eod` | Paid base at start / end of day (`eod = bod + adds - churn`) |
+| `hours_watched` | Target: hours streamed that day |
+| `daily_active_subs` | Subs who streamed that day (reporting only) |
+| `list_price`, `effective_price`, `discount_pct` | Monthly price and promo discount |
+| `promo_flag`, `promo_name` | Acquisition offer (Black Friday, summer sale) |
+| `tentpole_flag`, `tentpole_name`, `tentpole_type`, `tentpole_intensity` | Content calendar: sports / reality / event and expected pull |
+| `price_increase_flag` | 1 on the day a list-price increase takes effect |
+| `holiday_flag`, `fiscal_week`, `fiscal_month`, `fiscal_quarter`, `season` | Calendar |
 
-Missing columns are handled gracefully: validation records the gap and
-downstream steps skip logic that needs the absent field.
+`data/content_calendar.csv` holds the tentpole and holiday columns by date and
+extends past the history, so tentpoles are **known future covariates** in the
+forecast. Retail never had a reliable future promo calendar; here it is the
+main structural advantage.
 
-## 6. Output files
+## 5. Output files
 
 All under `outputs/`:
 
-- `forecasts.csv` - daily forward forecasts per series (28-day horizon), with a
-  `horizon_day` index for rollups.
-- `recommendations.csv` - the decision table (see schema below).
-- `model_metrics.csv` - per-model, per-slice accuracy metrics.
-- `holdout_predictions.csv` - holdout actual vs forecast for the best model.
-- `data_quality_report.csv` - every validation finding and fix applied.
-- `plots/` - PNGs from declarative specs in `plot_specs/*.json` (actual vs
-  forecast, forecast by SKU/location, error/WAPE by department and channel,
-  inventory risk heatmap, forecast distribution, recommendation summary) plus
-  feature importance from explainability.
-- `processed/cleaned.csv` (under `data/`) - the cleaned dataset.
+- `forecasts.csv`: daily forward forecasts per segment (28 days) with
+  `forecast_gross_adds`, `forecast_churned_subs`, `forecast_hours_watched`,
+  the model used for each, and derived `forecast_net_adds`,
+  `forecast_paid_subs`, `forecast_hours_per_paid_sub`.
+- `recommendations.csv`: one row per segment per horizon (7/14/28) with the
+  baseline outlook, the price-change scenario, risk flag, action, price
+  decision, reason code and explanation.
+- `okr_summary.csv`: Growth OKRs per horizon, baseline vs price change.
+- `model_metrics.csv`: per-target, per-model accuracy by slice.
+- `holdout_predictions.csv`: holdout actual vs forecast for the best model,
+  per target.
+- `data_quality_report.csv`: every validation finding and fix applied.
+- `plots/`: PNGs from `plot_specs/*.json` (actual vs forecast, WAPE by tier
+  and channel, churn error by segment, net adds heatmap, net adds forecast,
+  paid subs by tier, usage per paid sub, recommendation summary, high-value
+  net adds baseline vs price change) plus feature importance.
 
-Ad-hoc charts (no pipeline re-run) via the plot CLI:
+Ad-hoc charts without a pipeline re-run:
 
 ```bash
 python -m src.plotting list-datasets
-python -m src.plotting describe forecasts
+python -m src.plotting describe okr_summary
 python -m src.plotting render --spec outputs/adhoc_example.json
 ```
 
-Recommendation table columns: `date, sku_id, location_id, channel, department,
-forecast_horizon, forecast_units, inventory_on_hand, weeks_of_supply,
-risk_flag, recommended_action, recommended_markdown_pct, expected_sales,
-expected_margin, objective_score, reason_code, explanation`.
+## 6. Model methodology
 
-## 7. Model methodology
+Each target (`gross_adds`, `churned_subs`, `hours_watched`) runs through the
+same comparison independently:
 
-- **Naive baselines**: last-7-day average, same-weekday-last-week, seasonal
+- **Naive baselines**: last-7-day average, same weekday last week, seasonal
   naive (weekly).
-- **Statistical**: moving average, and optional SARIMAX per series (guarded and
-  capped for runtime; falls back to a naive value on failure or when
-  statsmodels is unavailable).
-- **Machine learning**: a single **global** gradient-boosting regressor
-  (LightGBM -> XGBoost -> sklearn HistGradientBoosting, first available) trained
-  across all series on lag/rolling/price/promo/calendar/hierarchy/inventory
-  features. Multi-step forecasts are produced **recursively**.
-- **Chronos (optional)**: `ChronosForecaster` in `src/model_chronos.py`
-  implements `AdvancedForecasterInterface` with Amazon Chronos-Bolt
-  (`amazon/chronos-bolt-small` by default). It joins the WAPE backtest when
-  `chronos-forecasting` and `torch` are installed; otherwise it is skipped.
-  Explainability remains ML-based (Chronos has no feature importances).
+- **Statistical**: moving average and optional SARIMAX (capped for runtime).
+- **Machine learning**: one **global** gradient-boosting regressor across all
+  segments on lag/rolling target history, price, promo and tentpole timing and
+  uplift, calendar, the opening paid base, trailing churn rate and hours per
+  sub, and segment categoricals. Multi-step forecasts are **recursive**; each
+  step sees the full remaining future calendar so `days_until_next_tentpole`
+  matches training.
+- **Chronos (optional)**: `ChronosForecaster` (`src/model_chronos.py`) joins
+  the backtest when `chronos-forecasting` and `torch` are installed.
 
-Splitting is strictly **time-based**: the trailing `holdout_days` per series are
-held out for evaluation, and the ML model is trained only on earlier rows.
+Splitting is strictly time-based: the trailing `holdout_days` per segment are
+held out. Target-derived features use `shift(1)` so the current day never
+leaks; sibling targets are never model inputs.
 
-## 8. Evaluation metrics
+## 7. Evaluation
 
-Computed overall and sliced by department, channel, location, SKU, lifecycle
-status, and promo vs non-promo periods:
+Computed per target, overall and sliced by tier, acquisition channel,
+distribution partner, segment, and tentpole vs non-tentpole days: **WAPE**
+(selection metric), **MAPE**, **MAE**, **RMSE**, **Bias**, and forecast
+accuracy = clip(1 - WAPE, 0, 1). The best model is picked per target.
 
-- **WAPE** (primary selection metric), **MAPE** (safe zero handling), **MAE**,
-  **RMSE**, **Bias**, and a **forecast accuracy %** = clip(1 - WAPE, 0, 1).
+## 8. Scenario engine
 
-The best model is chosen by lowest overall WAPE.
+`src/scenario_engine.py` replaces the retail inventory/markdown optimizer. For
+each segment and horizon:
 
-## 9. Optimization logic
+- **Risk flag** (first that applies): `NEGATIVE_NET_ADDS`, `CHURN_SPIKE`
+  (forecast churn rate above 1.25x trailing), `TENTPOLE_CLIFF` (a big tentpole
+  just ended with nothing comparable ahead), `USAGE_DECLINE` (hours per sub
+  more than 8% below trailing), `PRICE_SENSITIVE` (the planned price change
+  loses on the objective), `OK`.
+- **Action**: `RETENTION_OFFER`, `ANNUAL_PLAN_UPSELL`, `ENGAGEMENT_PUSH`,
+  `HOLD_PRICE`, `PROCEED_PRICE_CHANGE`, `MONITOR`.
+- **Price-change scenario**: from `scenarios.price_changes` in config. Churn
+  and gross adds respond with constant elasticity, `(new / old) ** e`, scaled
+  by channel (partner-billed channels feel less of a list-price change) and
+  applied only to the share of the horizon on or after the effective date.
+- **Objective**: `revenue - churn_penalty_months x churned x price`. The
+  price decision is `PROCEED_PRICE_CHANGE` when the scenario objective beats
+  baseline, otherwise `HOLD_PRICE`.
 
-For each series and horizon the engine computes **weeks of supply** from the
-forecast and current inventory, then:
+`build_okr_summary` rolls segments into the two Growth OKRs. High-value means
+`okr.high_value_tiers` sold through `okr.high_value_channels`.
 
-- **Inventory action**: REPLENISH (stockout risk), REDUCE_EXPOSURE (overstock),
-  TRANSFER / HOLD in between, with `risk_flag` in
-  {STOCKOUT, OVERSTOCK, WATCH_LOW, WATCH_HIGH, OK}.
-- **Markdown / pricing**: searches candidate markdown depths and picks the one
-  maximizing a transparent objective, using **constant-elasticity** demand
-  response (configurable per department/class). Guardrails enforced: minimum
-  margin over cost, maximum markdown depth, no negative price, selling price not
-  above regular.
-- **Reason codes**: HIGH_STOCK_LOW_DEMAND, LOW_STOCK_HIGH_DEMAND,
-  PROMO_RESPONSE_STRONG/WEAK, STOCKOUT_RISK, OVERSTOCK_RISK, NORMAL_DEMAND.
-- **Objective** (`objective_score`): maximize expected margin, penalize
-  overstock and stockout distance from the healthy weeks-of-supply band. It is
-  intentionally structured to be swapped for `scipy.optimize` or an LP later.
+All thresholds, elasticities and weights live in `config/config.yaml`.
 
-All thresholds, guardrails, elasticities, and weights live in
-`config/config.yaml` - no business assumptions are hard-coded in source.
+## 9. Known limitations
 
-## 10. Known limitations
+- The sample is synthetic. Elasticities and tentpole intensities are
+  assumptions; calibrate them from past price increases and event cohorts.
+- Paid subs are an approximation: opening base plus forecast flows. Plan
+  switches between tiers and reactivations are not modelled separately.
+- The holdout backtest feeds the actual `paid_subs_bod` as a covariate, which
+  is slightly optimistic versus a true forward run where the base is itself
+  forecast.
+- Revenue is list price x average paid subs; promo discounts, partner revenue
+  share and ad revenue are not included.
+- Recursive forecasting rebuilds features per step; batch or vectorize it for
+  large segment counts.
 
-- The sample has no real future price/promo calendar, so forward covariates are
-  carried forward from the last observed values (promo/holiday default to 0).
-  Replace `build_future_frame` inputs with a real calendar in production.
-- Cost is approximated from an assumed gross margin; wire in true unit cost when
-  available for exact margin math.
-- Elasticity is a simple constant-elasticity assumption; calibrate per
-  department/class from historical price/volume when data allows.
-- SARIMAX is capped to a few series for runtime on the sample.
-- Recursive multi-step forecasting rebuilds features per step; for very large
-  fleets, batch or vectorize inference.
+## 10. Future enhancements
 
-## 11. Future enhancements
+- Cohort-based churn (tenure curves) instead of a single hazard per segment.
+- Probabilistic forecasts (quantiles) for OKR confidence ranges.
+- Hierarchical reconciliation across segment, tier and total.
+- Ad-tier revenue (impressions per hour) as a third OKR input.
+- A constrained optimizer over offer budget and price across tiers.
 
-- Chronos-Bolt is wired via `AdvancedForecasterInterface`
-  (`src/model_chronos.py`); optional follow-ups include Chronos-2 /
-  TimesFM / PatchTST adapters and richer covariate support.
-- Replace the greedy markdown search with a constrained optimizer
-  (`scipy.optimize` / LP / MILP) across the assortment.
-- Probabilistic forecasts (quantiles) to drive service-level safety stock.
-- Hierarchical reconciliation across SKU -> product -> department rollups.
-- Promotion-uplift modeling and cross-item cannibalization.
-- Model registry, scheduled retraining, and a serving API.
-
-## 12. Project structure
+## 11. Project structure
 
 ```
 retail_forecasting_optimization/
   README.md
   requirements.txt
   config/config.yaml
-  data/{sample_input.csv, processed/}
+  data/{sample_input.csv, content_calendar.csv, processed/}
   notebooks/01_exploration.ipynb
   plot_specs/*.json          # builtin declarative charts
   src/{data_loader, data_validation, feature_engineering, model_baseline,
-       model_ml, model_selection, forecasting_pipeline, optimization_engine,
-       evaluation, visualization, explainability, utils}.py
+       model_ml, model_chronos, model_selection, forecasting_pipeline,
+       scenario_engine, evaluation, visualization, explainability, utils,
+       dashboard_api}.py
+  src/dashboard/             # API aggregations
   src/plotting/              # PlotSpec engine (datasets, spec, renderer, CLI)
-  tests/{test_data_validation, test_feature_engineering, test_optimization_engine,
-         test_plotting}.py
-  outputs/{forecasts.csv, recommendations.csv, model_metrics.csv,
-           holdout_predictions.csv, plots/}
+  frontend/                  # React + Vite dashboard
+  tests/
+  outputs/{forecasts.csv, recommendations.csv, okr_summary.csv,
+           model_metrics.csv, holdout_predictions.csv, plots/}
   main.py
 ```

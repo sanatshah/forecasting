@@ -2,11 +2,12 @@
   "dataset": "metrics",
   "transform": {
     "filters": [
-      {"col": "level", "op": "eq", "value": "channel"}
+      {"col": "level", "op": "eq", "value": "acquisition_channel"},
+      {"col": "target", "op": "eq", "value": "gross_adds"}
     ],
     "groupby": {
       "by": ["group"],
-      "agg": {"wape": "mean"}
+      "agg": {"wape": "min"}
     },
     "sort": {"by": "wape", "ascending": true}
   },
@@ -16,7 +17,7 @@
     "y": "wape"
   },
   "style": {
-    "title": "WAPE by Channel",
+    "title": "Best WAPE by Acquisition Channel (gross adds)",
     "xlabel": "WAPE",
     "figsize": [9, 5],
     "legend": false

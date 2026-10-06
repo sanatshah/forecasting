@@ -3,20 +3,20 @@
   "transform": {
     "groupby": {
       "by": ["date"],
-      "agg": {"forecast_units": "sum"}
+      "agg": {"forecast_net_adds": "sum"}
     }
   },
   "chart": {
     "kind": "area",
     "x": "date",
-    "y": "forecast_units"
+    "y": "forecast_net_adds"
   },
   "style": {
-    "title": "Forward Forecast Demand Over Time (all series)",
+    "title": "Forecast Net Adds per Day (all segments)",
     "xlabel": "Date",
-    "ylabel": "Total forecast units",
+    "ylabel": "Net adds",
     "figsize": [10, 5],
     "legend": false
   },
-  "output": "forecast_distribution.png"
+  "output": "net_adds_forecast.png"
 }

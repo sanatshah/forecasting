@@ -1,9 +1,11 @@
-"""Retail forecast accuracy metrics and multi-level evaluation.
+"""Forecast accuracy metrics and multi-level evaluation.
 
 Metrics implemented
 --------------------
 * **WAPE**  - Weighted Absolute Percentage Error = sum|A-F| / sum|A|.
-              Robust to zeros; the primary retail accuracy metric.
+              Robust to zeros; the primary accuracy metric. Every target
+              (gross adds, churn, hours) is non-negative, so WAPE is well
+              defined - which is why net adds are derived, not forecast.
 * **MAPE**  - Mean Absolute Percentage Error with safe zero handling (rows
               where actual == 0 are excluded from the mean).
 * **MAE**   - Mean Absolute Error.
@@ -11,8 +13,8 @@ Metrics implemented
 * **Bias**  - Mean (Forecast - Actual); positive = over-forecast.
 * **Forecast accuracy %** = (1 - WAPE) clipped to [0, 1].
 
-Evaluation can be sliced by any set of dimensions (department, channel,
-location, sku, promo vs non-promo, lifecycle status).
+Evaluation can be sliced by any set of dimensions (tier, acquisition channel,
+distribution partner, segment, tentpole vs non-tentpole days).
 """
 from __future__ import annotations
 
@@ -114,24 +116,24 @@ def evaluate_by(
     return pd.DataFrame(rows)
 
 
-def evaluate_promo_split(
+def evaluate_tentpole_split(
     df: pd.DataFrame,
     actual_col: str = "actual",
     forecast_col: str = "forecast",
-    promo_col: str = "promo_flag",
+    flag_col: str = "tentpole_flag",
 ) -> pd.DataFrame:
-    """Compute metrics separately for promo vs non-promo periods."""
+    """Compute metrics separately for tentpole vs non-tentpole days."""
     rows: List[Dict[str, object]] = []
-    if promo_col not in df.columns:
+    if flag_col not in df.columns:
         return pd.DataFrame(rows)
     for label, sub in [
-        ("promo", df[df[promo_col] == 1]),
-        ("non_promo", df[df[promo_col] != 1]),
+        ("tentpole", df[df[flag_col] == 1]),
+        ("non_tentpole", df[df[flag_col] != 1]),
     ]:
         if len(sub) == 0:
             continue
         m = compute_metrics(sub[actual_col].to_numpy(), sub[forecast_col].to_numpy())
-        rows.append({"level": "promo_period", "group": label, **m})
+        rows.append({"level": "tentpole_period", "group": label, **m})
     return pd.DataFrame(rows)
 
 
@@ -142,20 +144,14 @@ def full_evaluation(
 ) -> pd.DataFrame:
     """Run the complete multi-level evaluation used in the pipeline.
 
-    Slices: overall, department, channel, location, sku, lifecycle status,
-    and promo vs non-promo.
+    Slices: overall, tier, acquisition channel, distribution partner,
+    segment (series_id), and tentpole vs non-tentpole days.
     """
     group_cols = [
         c
-        for c in [
-            "department",
-            "channel",
-            "location_id",
-            "sku_id",
-            "product_lifecycle_status",
-        ]
+        for c in ["tier", "acquisition_channel", "distribution_partner", "series_id"]
         if c in df.columns
     ]
     base = evaluate_by(df, actual_col, forecast_col, group_cols)
-    promo = evaluate_promo_split(df, actual_col, forecast_col)
-    return pd.concat([base, promo], ignore_index=True)
+    tentpole = evaluate_tentpole_split(df, actual_col, forecast_col)
+    return pd.concat([base, tentpole], ignore_index=True)

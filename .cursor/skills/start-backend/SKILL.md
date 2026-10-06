@@ -1,6 +1,6 @@
 ---
 name: start-backend
-description: Starts the FastAPI dashboard API that serves retail forecasting pipeline CSV outputs. Use when the user asks to start the backend, API, dashboard API, or uvicorn for the forecast dashboard.
+description: Starts the FastAPI dashboard API that serves Peacock subscriber forecasting pipeline CSV outputs. Use when the user asks to start the backend, API, dashboard API, or uvicorn for the forecast dashboard.
 ---
 
 # Start Backend (Dashboard API)
@@ -56,11 +56,13 @@ Optional: OpenAPI docs at http://127.0.0.1:8000/docs
 | Method | Path | Notes |
 |--------|------|-------|
 | GET | `/api/health` | Liveness; no CSVs required |
-| GET | `/api/summary` | Executive KPIs |
-| GET | `/api/action-breakdown` | Actions by department |
-| GET | `/api/sku-forecasts?top_skus=8` | Forward curves |
-| GET | `/api/recommendations` | Optional `risk`, `action`, `department` filters |
-| GET | `/api/metrics/department` | WAPE by department |
+| GET | `/api/summary` | Growth OKR KPIs (baseline + price change), best model per target, risk/action counts |
+| GET | `/api/okr` | Every horizon x scenario OKR row |
+| GET | `/api/action-breakdown` | Actions by tier |
+| GET | `/api/segment-forecasts` | Forward net adds, paid subs, hours per paid sub per segment |
+| GET | `/api/holdout-forecasts?segment=&target=` | Holdout actual vs predicted (`target` defaults to `gross_adds`) |
+| GET | `/api/recommendations` | Optional `tier`, `risk`, `action`, `horizon` filters |
+| GET | `/api/metrics/segment?target=` | WAPE by tier and channel for the best model |
 
 ## Success criteria
 

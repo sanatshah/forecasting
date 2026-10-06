@@ -1,6 +1,6 @@
 ---
 name: pipeline-canvas-dashboard
-description: Build interactive Cursor canvases from retail forecasting pipeline outputs (forecasts, recommendations, metrics). Use when the user asks for a dashboard, canvas, or live view of pipeline data, SKU explorers, risk breakdowns, or executive summaries fed by outputs/.
+description: Build interactive Cursor canvases from Peacock subscriber forecasting pipeline outputs (forecasts, recommendations, OKR summary, metrics). Use when the user asks for a dashboard, canvas, or live view of pipeline data, segment explorers, risk breakdowns, Growth OKRs, or executive summaries fed by outputs/.
 ---
 
 # Pipeline canvas dashboards
@@ -52,7 +52,9 @@ From `retail_forecasting_optimization/`:
 # Built-in recipes (stdout JSON → paste into canvas)
 ./.venv/bin/python ../.cursor/skills/pipeline-canvas-dashboard/scripts/extract_canvas_data.py action-breakdown
 ./.venv/bin/python ../.cursor/skills/pipeline-canvas-dashboard/scripts/extract_canvas_data.py executive-summary
-./.venv/bin/python ../.cursor/skills/pipeline-canvas-dashboard/scripts/extract_canvas_data.py sku-forecasts --top-skus 8
+./.venv/bin/python ../.cursor/skills/pipeline-canvas-dashboard/scripts/extract_canvas_data.py segment-forecasts
+./.venv/bin/python ../.cursor/skills/pipeline-canvas-dashboard/scripts/extract_canvas_data.py okr
+./.venv/bin/python ../.cursor/skills/pipeline-canvas-dashboard/scripts/extract_canvas_data.py segment-metrics --target churned_subs
 
 # Save to file for large payloads
 ./.venv/bin/python ../.cursor/skills/pipeline-canvas-dashboard/scripts/extract_canvas_data.py action-breakdown -o /tmp/action-breakdown.json
@@ -60,9 +62,11 @@ From `retail_forecasting_optimization/`:
 
 | Recipe | Primary dataset | Typical canvas |
 |--------|-----------------|----------------|
-| `action-breakdown` | recommendations | Stacked bar + UsageBar by department/action |
-| `executive-summary` | metrics + recommendations | Stat row + risk/action KPIs |
-| `sku-forecasts` | forecasts | Select + LineChart per SKU/location |
+| `action-breakdown` | recommendations | Stacked bar + UsageBar by tier/action |
+| `executive-summary` | metrics + recommendations + okr_summary | Stat row: OKRs, best model per target, risk/action counts |
+| `segment-forecasts` | forecasts | Select + LineChart per segment (net adds, paid subs, hours per sub) |
+| `okr` | okr_summary | Baseline vs price-change bars per horizon |
+| `segment-metrics` | metrics | WAPE by tier and channel for one target |
 
 For custom aggregations, extend the script or use a one-off pandas snippet — still embed the result inline.
 
@@ -72,9 +76,9 @@ Write to the workspace managed directory only:
 
 `~/.cursor/projects/<workspace>/canvases/<descriptive-name>.canvas.tsx`
 
-Examples in this repo: `action-breakdown-by-department.canvas.tsx`, `sku-forecast-explorer.canvas.tsx`.
+Example names: `growth-okrs.canvas.tsx`, `segment-forecast-explorer.canvas.tsx`.
 
-Optional interactive defaults: sibling `<name>.canvas.data.json` (e.g. `{ "selectedSku": "SKU0003" }`) with `useCanvasState`.
+Optional interactive defaults: sibling `<name>.canvas.data.json` (e.g. `{ "selectedSegment": "Premium|direct" }`) with `useCanvasState`.
 
 ## Component mapping
 
@@ -92,10 +96,7 @@ Read `~/.cursor/skills-cursor/canvas/sdk/index.d.ts` for exact prop shapes.
 
 ## Existing examples
 
-Study before inventing new layouts:
-
-- `~/.cursor/projects/Users-sunny-Projects-forecasting/canvases/action-breakdown-by-department.canvas.tsx` — recommendations breakdown
-- `~/.cursor/projects/Users-sunny-Projects-forecasting/canvases/sku-forecast-explorer.canvas.tsx` — SKU selector + forecast curves
+Older retail canvases in `~/.cursor/projects/Users-sunny-Projects-forecasting/canvases/` (`action-breakdown-by-department`, `sku-forecast-explorer`) show layout patterns, but their embedded data and column names predate the subscriber schema; reuse layouts only.
 
 ## After delivery
 

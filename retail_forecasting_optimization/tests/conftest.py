@@ -1,7 +1,7 @@
 """Shared pytest fixtures.
 
-Provides a loaded config and a small synthetic retail dataset so tests run fast
-and deterministically without depending on the full sample CSV.
+Provides a loaded config and a small synthetic subscriber dataset so tests run
+fast and deterministically without depending on the full sample CSV.
 """
 from __future__ import annotations
 
@@ -29,42 +29,63 @@ def config():
 
 @pytest.fixture()
 def sample_df(config):
-    """Build a small, clean two-series dataset (~60 days each)."""
+    """Build a small, clean two-segment dataset (60 days each).
+
+    The subscriber ledger is consistent: ``paid_subs_eod == paid_subs_bod +
+    gross_adds - churned_subs`` and each day's bod is the prior day's eod.
+    Sundays are tentpoles (Sunday Night Football) and days 20-24 are a promo.
+    """
     rng = np.random.default_rng(0)
     dates = pd.date_range("2024-01-01", periods=60, freq="D")
+    sunday = (dates.dayofweek == 6).astype(int)
+    promo = np.zeros(len(dates), dtype=int)
+    promo[20:25] = 1
+
     frames = []
-    for sku, loc, dept, base in [
-        ("SKU9001", "LOC01", "Womens Apparel", 20),
-        ("SKU9002", "LOC02", "Home", 8),
+    for tier, channel, partner, price, start_subs, adds_base in [
+        ("Premium", "direct", "Peacock", 7.99, 50_000, 120),
+        ("Ad Tier", "app_store", "Apple/Google", 4.99, 30_000, 80),
     ]:
-        units = np.clip(base + rng.normal(0, 3, len(dates)), 0, None).round()
+        adds = np.clip(
+            adds_base * (1 + 0.5 * sunday + 0.3 * promo) + rng.normal(0, 8, len(dates)), 0, None
+        ).round().astype(int)
+        churn = np.clip(adds_base * 0.8 + rng.normal(0, 6, len(dates)), 0, None).round().astype(int)
+        bod = np.empty(len(dates), dtype=int)
+        eod = np.empty(len(dates), dtype=int)
+        base = start_subs
+        for i in range(len(dates)):
+            bod[i] = base
+            base = base + adds[i] - churn[i]
+            eod[i] = base
+        hours = (bod * (0.9 + 0.4 * sunday) + rng.normal(0, 200, len(dates))).clip(0).round(1)
         frames.append(
             pd.DataFrame(
                 {
                     "date": dates,
-                    "sku_id": sku,
-                    "product_id": "P" + sku,
-                    "location_id": loc,
-                    "department": dept,
-                    "class": "ClassA",
-                    "subclass": "SubA",
-                    "channel": "store",
-                    "units_sold": units.astype(int),
-                    "sales_revenue": units * 10.0,
-                    "regular_price": 10.0,
-                    "selling_price": 10.0,
-                    "markdown_pct": 0.0,
-                    "promo_flag": 0,
-                    "promo_event_name": None,
-                    "inventory_on_hand": 200,
-                    "inventory_in_transit": 0,
-                    "stockout_flag": 0,
+                    "tier": tier,
+                    "acquisition_channel": channel,
+                    "distribution_partner": partner,
+                    "gross_adds": adds,
+                    "churned_subs": churn,
+                    "paid_subs_bod": bod,
+                    "paid_subs_eod": eod,
+                    "hours_watched": hours,
+                    "daily_active_subs": (bod * 0.35).round().astype(int),
+                    "list_price": price,
+                    "effective_price": np.where(promo == 1, round(price * 0.6, 2), price),
+                    "discount_pct": np.where(promo == 1, 0.4, 0.0),
+                    "promo_flag": promo,
+                    "promo_name": np.where(promo == 1, "Winter Sale", None),
+                    "tentpole_flag": sunday,
+                    "tentpole_name": np.where(sunday == 1, "Sunday Night Football", None),
+                    "tentpole_type": np.where(sunday == 1, "sports", "none"),
+                    "tentpole_intensity": np.where(sunday == 1, 1.45, 1.0),
+                    "price_increase_flag": 0,
                     "holiday_flag": 0,
-                    "fiscal_week": dates.isocalendar().week.astype(int),
+                    "fiscal_week": dates.isocalendar().week.astype(int).to_numpy(),
                     "fiscal_month": dates.month,
                     "fiscal_quarter": dates.quarter,
                     "season": "Winter",
-                    "product_lifecycle_status": "Core",
                 }
             )
         )

@@ -1,20 +1,22 @@
 # =============================================================================
-# Retail Forecasting & Optimization - central configuration
+# Peacock Subscriber Forecasting - central configuration
 # All business assumptions and tunable parameters live here (no hard-coding
 # in source). Values are read by src/utils.load_config().
 # =============================================================================
 
 project:
-  name: retail_forecasting_optimization
+  name: peacock_subscriber_forecasting
   random_seed: 42
 
 paths:
   input_csv: data/sample_input.csv
+  content_calendar_csv: data/content_calendar.csv
   processed_dir: data/processed
   outputs_dir: outputs
   plots_dir: outputs/plots
   forecasts_csv: outputs/forecasts.csv
   recommendations_csv: outputs/recommendations.csv
+  okr_summary_csv: outputs/okr_summary.csv
   metrics_csv: outputs/model_metrics.csv
   holdout_predictions_csv: outputs/holdout_predictions.csv
   quality_report_csv: outputs/data_quality_report.csv
@@ -24,47 +26,50 @@ paths:
 # -----------------------------------------------------------------------------
 data:
   date_col: date
-  target_col: units_sold
-  # Series grain: a unique time series is identified by these columns together.
-  series_keys: [sku_id, location_id, channel]
+  # Forecast targets. Each is non-negative and forecast independently; net adds,
+  # paid subs and hours per paid sub are derived from them.
+  targets: [gross_adds, churned_subs, hours_watched]
+  # Default single target (overridden per loop iteration by main.py).
+  target_col: gross_adds
+  # Series grain: a segment is one tier sold through one acquisition channel.
+  series_keys: [tier, acquisition_channel]
   required_columns:
     - date
-    - sku_id
-    - product_id
-    - location_id
-    - department
-    - class
-    - subclass
-    - channel
-    - units_sold
-    - sales_revenue
-    - regular_price
-    - selling_price
-    - markdown_pct
+    - tier
+    - acquisition_channel
+    - distribution_partner
+    - gross_adds
+    - churned_subs
+    - paid_subs_bod
+    - paid_subs_eod
+    - hours_watched
+    - daily_active_subs
+    - list_price
+    - effective_price
+    - discount_pct
     - promo_flag
-    - promo_event_name
-    - inventory_on_hand
-    - inventory_in_transit
-    - stockout_flag
+    - promo_name
+    - tentpole_flag
+    - tentpole_name
+    - tentpole_type
+    - tentpole_intensity
+    - price_increase_flag
     - holiday_flag
     - fiscal_week
     - fiscal_month
     - fiscal_quarter
     - season
-    - product_lifecycle_status
   # Columns that are allowed to contain nulls (business-valid).
-  nullable_columns: [promo_event_name]
+  nullable_columns: [promo_name, tentpole_name]
 
 # -----------------------------------------------------------------------------
 # Validation thresholds
 # -----------------------------------------------------------------------------
 validation:
-  max_markdown_pct: 0.95        # markdown depth above this is flagged as impossible
   min_price: 0.0                # prices must be >= this
-  # If selling_price > regular_price it is flagged (price integrity issue).
-  allow_selling_above_regular: false
-  # A stockout is inferred when inventory_on_hand <= this AND demand signal exists.
-  stockout_inventory_threshold: 0
+  max_discount_pct: 1.0         # promo discount above this is impossible
+  # If effective_price > list_price it is flagged (price integrity issue).
+  allow_effective_above_list: false
 
 # -----------------------------------------------------------------------------
 # Feature engineering windows
@@ -72,11 +77,8 @@ validation:
 features:
   lags: [1, 7, 14, 28]
   rolling_windows: [7, 14, 28]
-  # Weeks-of-supply uses a rolling demand rate over this many days.
-  wos_demand_window: 28
-  # Constrained-demand flag: demand is considered constrained when stockout or
-  # inventory is below this many days of typical demand.
-  constrained_wos_threshold_days: 3
+  # Trailing window for event uplift ratios and the trailing churn rate.
+  event_window: 28
 
 # -----------------------------------------------------------------------------
 # Train / test split and forecasting
@@ -85,7 +87,7 @@ forecast:
   horizons: [7, 14, 28]
   # Number of trailing days held out per series for evaluation (time-based split).
   holdout_days: 28
-  # Primary horizon used for optimization / recommendations.
+  # Primary horizon used for scenarios / OKR headline.
   primary_horizon: 28
 
 # -----------------------------------------------------------------------------
@@ -101,7 +103,7 @@ models:
     subsample: 0.9
     colsample_bytree: 0.9
     min_child_samples: 20
-  # SARIMAX is expensive; cap how many series it runs on for the sample.
+  # SARIMAX is expensive; cap how many series it runs on.
   sarimax:
     enabled: true
     max_series: 5
@@ -117,33 +119,59 @@ models:
     quantile_level: 0.5
 
 # -----------------------------------------------------------------------------
-# Optimization engine
+# Scenario engine (replaces the retail inventory / markdown optimizer)
 # -----------------------------------------------------------------------------
-optimization:
-  # Weeks-of-supply thresholds driving inventory actions.
-  wos_stockout_threshold: 1.0     # below this -> stockout risk / replenish
-  wos_overstock_threshold: 8.0    # above this -> overstock risk / reduce
-  wos_healthy_low: 2.0
-  wos_healthy_high: 6.0
-  # Service level target for safety-stock style reasoning.
-  service_level_z: 1.65           # ~95% service level
-  # Markdown guardrails.
-  min_margin_pct: 0.10            # do not recommend actions that push margin below this
-  max_markdown_pct: 0.70         # never recommend markdown deeper than this
-  markdown_step: 0.05            # granularity of recommended markdown changes
-  # Unit cost assumption when true cost is unavailable: cost = regular_price * (1 - assumed_gross_margin)
-  assumed_gross_margin: 0.55
-  # Objective function weights (maximize margin, penalize overstock & stockout).
-  objective_weights:
-    margin: 1.0
-    overstock_penalty: 0.3
-    stockout_penalty: 0.5
-  # Price elasticity of demand (negative = demand rises as price falls).
-  # Configurable by department, with class-level overrides and a global default.
+scenarios:
+  # Planned list-price changes to evaluate against the baseline forecast.
+  # The new price applies from effective_date for the rest of each horizon.
+  price_changes:
+    - tier: Premium
+      effective_date: "2026-10-15"
+      new_price: 12.99
+    - tier: Premium Plus
+      effective_date: "2026-10-15"
+      new_price: 19.99
+  # Constant-elasticity response to a list-price ratio (new / old):
+  #   churn multiplier = ratio ** churn,  gross-adds multiplier = ratio ** acquisition
   elasticity:
-    default: -1.2
-    by_department:
-      "Womens Apparel": -1.4
-      "Mens Apparel": -1.1
-      "Home": -0.9
-    by_class: {}
+    churn:
+      default: 1.8
+      by_tier:
+        "Premium": 1.8
+        "Premium Plus": 1.4
+        "Ad Tier": 2.2
+    acquisition:
+      default: -1.0
+      by_tier:
+        "Premium": -1.0
+        "Premium Plus": -0.8
+        "Ad Tier": -1.3
+    # Partner-billed channels see less of a list-price change.
+    channel_scale:
+      direct: 1.0
+      app_store: 1.0
+      mvpd_partner: 0.3
+      retail_bundle: 0.3
+  risk:
+    # Forecast daily churn rate above this multiple of the trailing rate.
+    churn_spike_multiple: 1.25
+    trailing_churn_days: 90
+    # Forecast hours per paid sub below trailing by more than this fraction.
+    usage_decline_pct: 0.08
+    trailing_usage_days: 28
+    # A tentpole at or above this intensity that ended within the lookback (or
+    # ends inside the horizon) with nothing comparable after it is a cliff.
+    cliff_min_intensity: 1.8
+    cliff_lookback_days: 30
+  # objective = revenue_weight * revenue - churn_penalty_months * churned * price
+  objective_weights:
+    revenue: 1.0
+    churn_penalty_months: 3.0
+
+# -----------------------------------------------------------------------------
+# Growth OKRs
+# -----------------------------------------------------------------------------
+okr:
+  # High-value subscribers: full-price, directly billed paid tiers.
+  high_value_tiers: ["Premium", "Premium Plus"]
+  high_value_channels: [direct, app_store]

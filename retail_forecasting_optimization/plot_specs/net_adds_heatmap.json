@@ -1,0 +1,22 @@
+{
+  "dataset": "recommendations",
+  "transform": {
+    "filters": [
+      {"col": "forecast_horizon", "op": "eq", "value": 28}
+    ],
+    "pivot": {
+      "index": "tier",
+      "columns": "acquisition_channel",
+      "values": "forecast_net_adds",
+      "aggfunc": "sum"
+    }
+  },
+  "chart": {
+    "kind": "heatmap"
+  },
+  "style": {
+    "title": "28-day Forecast Net Adds by Tier x Channel",
+    "figsize": [9, 4]
+  },
+  "output": "net_adds_heatmap.png"
+}

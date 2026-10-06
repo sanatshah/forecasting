@@ -1,0 +1,20 @@
+{
+  "dataset": "okr_summary",
+  "transform": {
+    "filters": [
+      {"col": "forecast_horizon", "op": "eq", "value": 28}
+    ]
+  },
+  "chart": {
+    "kind": "bar",
+    "x": "scenario",
+    "y": "high_value_net_adds"
+  },
+  "style": {
+    "title": "High-Value Net Adds, 28-day: Baseline vs Price Change",
+    "ylabel": "Net adds",
+    "figsize": [7, 5],
+    "legend": false
+  },
+  "output": "okr_high_value_net_adds.png"
+}

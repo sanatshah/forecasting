@@ -213,14 +213,14 @@ def _draw_chart(df: pd.DataFrame, chart: ChartSpec, style: StyleSpec) -> plt.Fig
                 _require_columns(df, [chart.x, chart.y], "heatmap")
                 # If a values column was melt'd, try common name; else count
                 val_col = None
-                for candidate in ("value", "count", "n", "forecast_units"):
+                for candidate in ("value", "count", "n", "forecast_value"):
                     if candidate in df.columns and candidate not in (chart.x, chart.y):
                         val_col = candidate
                         break
                 if val_col is None:
                     raise ValueError(
                         "heatmap on a flat frame needs a numeric values column "
-                        f"(tried value/count/n/forecast_units). Columns: "
+                        f"(tried value/count/n/forecast_value). Columns: "
                         f"{', '.join(map(str, df.columns))}"
                     )
                 matrix = df.pivot_table(

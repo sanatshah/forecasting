@@ -1,10 +1,10 @@
 ---
-description: Isolation + integration tests required when adding retail pipeline features
+description: Isolation + integration tests required when adding subscriber pipeline features
 globs: retail_forecasting_optimization/{src/feature_engineering.py,tests/test_*.py}
 alwaysApply: false
 ---
 
-# Retail feature engineering — test requirements
+# Subscriber feature engineering — test requirements
 
 When adding or changing engineered columns in `retail_forecasting_optimization/src/feature_engineering.py`, **always ship tests in the same change**. Do not rely on `build_features()` integration tests alone.
 
@@ -12,7 +12,7 @@ When adding or changing engineered columns in `retail_forecasting_optimization/s
 
 1. **Implement** in the appropriate `_add_*` helper (or a small helper it calls).
 2. **Register** the column in `get_feature_columns()` when it is a model input.
-3. **Add isolation tests** in `tests/test_<feature_or_area>.py` (see `tests/test_promo_uplift_ratio.py`).
+3. **Add isolation tests** in `tests/test_<feature_or_area>.py` (see `tests/test_subscriber_features.py`).
 4. **Add one integration check** in `tests/test_feature_engineering.py` (e.g. column listed by `get_feature_columns()`).
 5. **Run** from `retail_forecasting_optimization/`: `./.venv/bin/python -m pytest -q`
 
@@ -26,21 +26,22 @@ Each new feature needs tests for:
 |------|----------------|
 | Column created | Always |
 | Skipped when required input missing | Feature depends on optional columns |
-| Shift / leakage discipline | Feature uses `units_sold` or other target-derived history |
+| Shift / leakage discipline | Feature uses a forecast target (`gross_adds`, `churned_subs`, `hours_watched`) or other target-derived history |
 | Sensible defaults (e.g. `1.0`, non-negative) | Feature has fallback logic |
 | Hand-checked or reference row | Always — at least one deterministic expected value |
 | Per-series independence | Logic uses `groupby("series_id")` |
 | Sparse-history / window fallback | Trailing or expanding windows |
+| Future rows don't dilute | Feature is a trailing rate used during recursive forecasting (target NaN on future rows) |
 
 Include a `_expected_*()` reference helper when logic is non-trivial, and assert the helper output matches it for a multi-row series.
 
 ## Leakage discipline
 
-Target-derived features must use `shift(1)` per series before rolling or aggregating. Isolation tests must prove mutating **today's** `units_sold` does not change **today's** feature value.
+Target-derived features must use `shift(1)` per series before rolling or aggregating. Isolation tests must prove mutating **today's** target value does not change **today's** feature value. Features must be target-agnostic: read the target from `config["data"]["target_col"]` (or a `target` argument) so they work for every entry in `data.targets`. Sibling targets and same-day outcomes (`paid_subs_eod`, `daily_active_subs`) must never be model inputs.
 
 ```python
 # ✅ GOOD — isolation test calls helper directly
-out = _add_promo_features(minimal_df, "date", config["features"])
+out = _add_event_features(minimal_df, "date", config["features"], "gross_adds", "tentpole_flag", "tentpole")
 
 # ❌ BAD — only testing through the full pipeline
 feats = build_features(validate_and_clean(full_df, config)[0], config)
