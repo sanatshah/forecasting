@@ -1,0 +1,25 @@
+{
+  "name": "Retail Demand Forecasting & Optimization",
+  "user": "ubuntu",
+  "install": "bash .cursor/install.sh",
+  "terminals": [
+    {
+      "name": "dashboard-api",
+      "command": "cd retail_forecasting_optimization && ./.venv/bin/uvicorn src.dashboard_api:app --host 127.0.0.1 --port 8000"
+    },
+    {
+      "name": "dashboard-ui",
+      "command": "cd retail_forecasting_optimization/frontend && npm run dev -- --host 127.0.0.1"
+    }
+  ],
+  "ports": [
+    {
+      "name": "dashboard-ui",
+      "port": 5173
+    },
+    {
+      "name": "dashboard-api",
+      "port": 8000
+    }
+  ]
+}
